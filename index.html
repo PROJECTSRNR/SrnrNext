@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="ทางเข้า SRNR NEXT วิทยาลัยเทคนิคสุรนารี">
+  <title>SRNR NEXT · วิทยาลัยเทคนิคสุรนารี</title>
+  <style>
+    :root { color-scheme:dark; font-family:system-ui,sans-serif; }
+    * { box-sizing:border-box; }
+    [hidden] { display:none!important; }
+    body { margin:0; min-height:100svh; display:grid; place-items:center; padding:24px; background:#101b2c; color:#edf3fd; }
+    main { width:min(100%,480px); padding:32px; border:1px solid #2c4160; border-radius:24px; background:#192a40; }
+    h1 { margin:0 0 8px; font-size:30px; letter-spacing:-1px; }
+    h1 span { color:#83b4ff; } h1 b { color:#f4c64e; }
+    p { color:#b5c5dd; font-size:14px; line-height:1.8; overflow-wrap:anywhere; }
+    a { display:inline-block; min-height:44px; padding:12px 18px; border-radius:12px; background:#8fbaff; color:#102440; text-decoration:none; font-weight:600; }
+    a:focus-visible { outline:3px solid #f4c64e; outline-offset:4px; }
+    small { display:block; margin-top:28px; color:#93a7c4; line-height:1.8; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>SRNR <span>NEXT</span><b>.</b></h1>
+    <p>วิทยาลัยเทคนิคสุรนารี</p>
+    <p id="status" role="status">กำลังเปิด SRNR NEXT…</p>
+    <a id="openApp" hidden>เปิด SRNR NEXT</a>
+    <noscript><p>กรุณาเปิดใช้งาน JavaScript เพื่อเข้าสู่ SRNR NEXT</p></noscript>
+    <small>by งานศูนย์ดิจิทัลและสื่อสารองค์กร</small>
+  </main>
+  <script>
+    // Replace this value with the current deployed Web app URL ending in /exec.
+    const APP_URL = "PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE";
+    try {
+      const target = new URL(APP_URL);
+      if (target.protocol !== 'https:' || target.hostname !== 'script.google.com' ||
+          target.username || target.password || !/^\/macros\/s\/[^/]+\/exec$/.test(target.pathname)) {
+        throw new Error('Invalid Web app URL');
+      }
+      target.hash = ['#home','#search','#teachers','#students'].includes(location.hash) ? location.hash : '#home';
+      const link = document.getElementById('openApp');
+      link.href = target.href;
+      link.hidden = false;
+      document.getElementById('status').textContent = 'กำลังเปิดระบบ หากไม่เปลี่ยนหน้าให้กดปุ่มด้านล่าง';
+      location.replace(target.href);
+    } catch {
+      document.getElementById('status').textContent = 'ผู้ดูแลต้องตั้งค่า APP_URL ในไฟล์ index.html เป็นลิงก์ Apps Script ที่ลงท้าย /exec ก่อนเปิดใช้งาน';
+    }
+  </script>
+</body>
+</html>
