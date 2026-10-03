@@ -160,7 +160,9 @@
       const actions = create('div','card-actions');
       const detail = create('button','details-link','รายละเอียด'); detail.type = 'button'; detail.setAttribute('aria-label','รายละเอียด: '+p.name); detail.onclick = () => openDetails(p);
       const report = create('button','report-link','แจ้งปัญหาลิงก์'); report.type='button'; report.setAttribute('aria-label','แจ้งปัญหาลิงก์: '+p.name); report.onclick = () => openReport(p);
-      actions.append(detail,report); bottom.append(actions,launchControl(p));
+      const launch = launchControl(p);
+      if (launch.tagName === 'A') card.classList.add('launchable-card');
+      actions.append(detail,report); bottom.append(actions,launch);
       card.append(top);
       if(p.recommended) { const badge = create('span','recommended-badge'); badge.innerHTML = icon('star'); badge.append(document.createTextNode('แนะนำ')); card.append(badge); }
       card.append(create('h3','',p.name),create('p','',p.description || 'เครื่องมือสำหรับชาวเทคนิคสุรนารี'));
@@ -202,15 +204,15 @@
     finally { if (generation === loadGeneration) $('loadingState').hidden = true; }
   }
   function route() {
-    const key = location.hash.slice(1); const page = ['home','search','teachers','students'].includes(key) ? key : 'home';
+    const key = location.hash.slice(1); const page = ['home','search','teachers','students','favorites'].includes(key) ? key : 'home';
     if(key === 'main') return;
     state.filter = page === 'teachers' ? 'teacher' : page === 'students' ? 'student' : 'all';
-    state.favoritesOnly = false;
+    state.favoritesOnly = page === 'favorites';
     state.subcategory = '';
     if (page !== 'search') $('searchInput').value = '';
     document.querySelectorAll('[data-nav]').forEach(el => { const active = el.dataset.nav === page; el.classList.toggle('active',active); if(active) el.setAttribute('aria-current','page'); else el.removeAttribute('aria-current'); });
-    $('breadcrumbPage').textContent = ({home:'หน้าแรก',search:'ค้นหาโปรแกรม',teachers:'สำหรับครู',students:'สำหรับนักเรียน'})[page];
-    $('sectionTitle').firstChild.textContent = ({home:'โปรแกรมทั้งหมด ',search:'ค้นหาโปรแกรม ',teachers:'โปรแกรมสำหรับครู ',students:'โปรแกรมสำหรับนักเรียน '})[page];
+    $('breadcrumbPage').textContent = ({home:'หน้าแรก',search:'ค้นหาโปรแกรม',teachers:'สำหรับครู',students:'สำหรับนักเรียน',favorites:'รายการโปรด'})[page];
+    $('sectionTitle').firstChild.textContent = ({home:'โปรแกรมทั้งหมด ',search:'ค้นหาโปรแกรม ',teachers:'โปรแกรมสำหรับครู ',students:'โปรแกรมสำหรับนักเรียน ',favorites:'รายการโปรดของฉัน '})[page];
     if(page === 'search') setTimeout(() => { $('searchInput').focus(); $('searchInput').scrollIntoView({block:'center',behavior:'smooth'}); },0);
     else if(page === 'home') window.scrollTo({top:0,behavior:'smooth'});
     else $('sectionTitle').scrollIntoView({block:'start',behavior:'smooth'});
@@ -223,8 +225,8 @@
   $('searchInput').oninput = render;
   document.querySelectorAll('[data-filter]').forEach(el => { el.onclick = () => { state.filter = el.dataset.filter; render(); }; });
   $('subcategoryFilter').onchange = () => { state.subcategory = $('subcategoryFilter').value; render(); };
-  $('clearSearch').onclick = () => { $('searchInput').value = ''; state.filter = 'all'; state.subcategory = ''; state.favoritesOnly = false; render(); };
-  $('favoritesButton').onclick = () => { state.favoritesOnly = !state.favoritesOnly; render(); };
+  $('clearSearch').onclick = () => { $('searchInput').value = ''; state.filter = 'all'; state.subcategory = ''; if(location.hash === '#favorites') location.hash = 'home'; else { state.favoritesOnly = false; render(); } };
+  $('favoritesButton').onclick = () => { location.hash = state.favoritesOnly ? 'home' : 'favorites'; };
   window.addEventListener('storage',event => { if(event.key === favoritesKey || event.key === null) { favorites = readFavorites(event.key === null ? null : event.newValue); render(); } });
   $('retryButton').onclick = load;
   window.addEventListener('hashchange',route);
