@@ -1,9 +1,9 @@
 'use strict';
 // Cache only the connection notice and college icons, never API or admin data.
 const cachePrefix = 'srnr-next-offline:' + self.registration.scope + ':';
-const cacheName = cachePrefix + 'v2';
+const cacheName = cachePrefix + 'v3';
 const offlineUrl = new URL('offline.html',self.registration.scope).href;
-const assets = ['offline.html','assets/app-icon-180.png','assets/app-icon-192.png','assets/app-icon-512.png','assets/app-icon-maskable-512.png'].map(name => new URL(name,self.registration.scope).href);
+const assets = ['offline.html','app-icon-180.png','app-icon-192.png','app-icon-512.png','app-icon-maskable-512.png'].map(name => new URL(name,self.registration.scope).href);
 self.addEventListener('install',event => {
   event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(assets)).then(() => self.skipWaiting()));
 });
