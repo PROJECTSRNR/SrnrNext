@@ -55,7 +55,7 @@
     deviceId = window.crypto && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+'-'+Math.random().toString(36).slice(2);
     try { localStorage.setItem('srnr-report-device-v1',deviceId); } catch {}
   }
-  function safeUrl(value) { try { const u = new URL(value); return u.protocol === 'https:' && !u.username && !u.password ? u.href : ''; } catch { return ''; } }
+  function safeUrl(value, allowHttp = false) { try { const u = new URL(value); return (u.protocol === 'https:' || allowHttp && u.protocol === 'http:') && !u.username && !u.password ? u.href : ''; } catch { return ''; } }
   function logoUrl(value) {
     const safe = safeUrl(value); if (!safe) return '';
     const u = new URL(safe);
@@ -89,7 +89,7 @@
     select.value = state.subcategory; select.disabled = !values.length;
   }
   function launchControl(p) {
-    const maintenance = p.serviceStatus === 'maintenance', url = safeUrl(p.url);
+    const maintenance = p.serviceStatus === 'maintenance', url = safeUrl(p.url, true);
     if(url && !preview && !maintenance) {
       const link = create('a','launch','เปิดใช้งาน'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.setAttribute('aria-label','เปิดใช้งาน '+p.name+' ในแท็บใหม่');
       const symbol = create('span'); symbol.innerHTML = icon('external'); link.append(symbol); return link;
