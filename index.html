@@ -1,52 +1,104 @@
 <!doctype html>
-<html lang="th">
+<html lang="th" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="description" content="ทางเข้า SRNR NEXT วิทยาลัยเทคนิคสุรนารี">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <script>
+    try {
+      const savedTheme = localStorage.getItem('srnr-theme');
+      if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+    } catch {}
+  </script>
+  <meta name="description" content="SRNR NEXT ศูนย์รวมโปรแกรมสำหรับครูและนักเรียน วิทยาลัยเทคนิคสุรนารี">
   <title>SRNR NEXT · วิทยาลัยเทคนิคสุรนารี</title>
-  <style>
-    :root { color-scheme:dark; font-family:system-ui,sans-serif; }
-    * { box-sizing:border-box; }
-    [hidden] { display:none!important; }
-    body { margin:0; min-height:100svh; display:grid; place-items:center; padding:24px; background:#101b2c; color:#edf3fd; }
-    main { width:min(100%,480px); padding:32px; border:1px solid #2c4160; border-radius:24px; background:#192a40; }
-    h1 { margin:0 0 8px; font-size:30px; letter-spacing:-1px; }
-    h1 span { color:#83b4ff; } h1 b { color:#f4c64e; }
-    p { color:#b5c5dd; font-size:14px; line-height:1.8; overflow-wrap:anywhere; }
-    a { display:inline-block; min-height:44px; padding:12px 18px; border-radius:12px; background:#8fbaff; color:#102440; text-decoration:none; font-weight:600; }
-    a:focus-visible { outline:3px solid #f4c64e; outline-offset:4px; }
-    small { display:block; margin-top:28px; color:#93a7c4; line-height:1.8; }
-  </style>
+  <link rel="icon" href="assets/college-logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- SRNR:STYLES -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <h1>SRNR <span>NEXT</span><b>.</b></h1>
-    <p>วิทยาลัยเทคนิคสุรนารี</p>
-    <p id="status" role="status">กำลังเปิด SRNR NEXT…</p>
-    <a id="openApp" hidden>เปิด SRNR NEXT</a>
-    <noscript><p>กรุณาเปิดใช้งาน JavaScript เพื่อเข้าสู่ SRNR NEXT</p></noscript>
-    <small>by งานศูนย์ดิจิทัลและสื่อสารองค์กร</small>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="#home" aria-label="SRNR NEXT หน้าแรก">
+        <img id="collegeLogo" src="assets/college-logo.jpg" alt="ตราวิทยาลัยเทคนิคสุรนารี" width="52" height="52">
+        <span><strong>SRNR <b>NEXT<span class="brand-dot">.</span></b></strong><small>วิทยาลัยเทคนิคสุรนารี</small></span>
+      </a>
+      <nav class="desktop-nav" aria-label="เมนูหลัก">
+        <a href="#home" data-nav="home"><span data-icon="home"></span>Home</a>
+        <a href="#search" data-nav="search"><span data-icon="search"></span>Search</a>
+        <a href="#teachers" data-nav="teachers">สำหรับครู</a>
+        <a href="#students" data-nav="students">สำหรับนักเรียน</a>
+      </nav>
+      <button id="themeButton" class="icon-button" type="button" aria-label="เปลี่ยนเป็นโหมดสว่าง"><span data-icon="sun"></span></button>
+    </div>
+  </header>
+  <main id="main" class="container">
+    <div class="breadcrumb"><span class="mini-mark">N</span> DIGITAL CAMPUS <span>/</span> <span id="breadcrumbPage">หน้าแรก</span></div>
+    <section class="programs" aria-labelledby="sectionTitle">
+      <div class="section-heading"><div><div class="eyebrow muted">WORKSPACE</div><h1 id="sectionTitle">โปรแกรมทั้งหมด <span id="totalCount" class="count">0</span></h1></div><span id="connectionStatus" class="connection">กำลังโหลดข้อมูล</span></div>
+      <div class="tools-row">
+        <label class="search-box"><span data-icon="search"></span><span class="sr-only">ค้นหาโปรแกรม</span><input id="searchInput" type="search" placeholder="ค้นหาชื่อโปรแกรมหรือคำค้น เช่น เกรด…" autocomplete="off"><kbd>/</kbd></label>
+        <div class="filters" role="group" aria-label="หมวดโปรแกรม">
+          <button type="button" class="filter active" data-filter="all" aria-pressed="true">ทั้งหมด</button>
+          <button type="button" class="filter" data-filter="teacher" aria-pressed="false"><span data-icon="briefcase"></span>ครู</button>
+          <button type="button" class="filter" data-filter="student" aria-pressed="false"><span data-icon="graduation"></span>นักเรียน</button>
+        </div>
+      </div>
+      <div class="quick-views"><button type="button" id="favoritesButton" class="favorites-button" aria-pressed="false"><span data-icon="star"></span>รายการโปรด <span id="favoritesCount" class="favorites-count">0</span></button><span>กดดาวเพื่อเก็บโปรแกรมที่ใช้บ่อยไว้ในเครื่องนี้</span></div>
+      <label class="subcategory-filter" for="subcategoryFilter"><span>หมวดย่อย</span><select id="subcategoryFilter"><option value="">ทุกหมวดย่อย</option></select></label>
+      <div id="previewNotice" class="preview-notice" hidden>หน้าตัวอย่างการออกแบบ · รายการด้านล่างยังไม่ได้เชื่อมระบบจริง</div>
+      <div id="errorState" class="state-box" hidden><span data-icon="cloud"></span><h3>ยังโหลดข้อมูลไม่ได้</h3><p id="errorMessage"></p><button type="button" id="retryButton" class="primary-button">ลองอีกครั้ง</button></div>
+      <div id="loadingState" class="program-grid" aria-label="กำลังโหลดโปรแกรม"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div id="programGrid" class="program-grid" aria-live="polite"></div>
+      <div id="emptyState" class="state-box" hidden><span data-icon="search"></span><h3 id="emptyTitle">ยังไม่มีโปรแกรม</h3><p id="emptyMessage">ผู้ดูแลสามารถเพิ่มโปรแกรมจากเมนูผู้ดูแลระบบ</p><button type="button" id="clearSearch" class="secondary-button" hidden>ล้างการค้นหา</button></div>
+      <div class="results-caption"><span id="resultsCount"></span><span>SRNR NEXT / CONNECT. LEARN. GROW.</span></div>
+    </section>
+    <aside class="info-strip"><div class="info-symbol"><span data-icon="layers"></span></div><div><strong>พื้นที่เดียว สำหรับทุกการเรียนรู้</strong><p>เลือกโปรแกรมที่ต้องการ แล้วเริ่มใช้งานได้ทันที</p></div><span class="info-word">NEXT IS NOW<span>↗</span></span></aside>
   </main>
-  <script>
-    // Replace this value with the current deployed Web app URL ending in /exec.
-    const APP_URL = "https://script.google.com/macros/s/AKfycbzhxg6NWE3ZBEWv6f9sBIu7Fyc72RhbLGBSnvrjC_k2mDlirz80H2RucPZ15Bd9haHw/exec";
-    try {
-      const target = new URL(APP_URL);
-      if (target.protocol !== 'https:' || target.hostname !== 'script.google.com' ||
-          target.username || target.password || !/^\/macros\/s\/[^/]+\/exec$/.test(target.pathname)) {
-        throw new Error('Invalid Web app URL');
-      }
-      target.hash = ['#home','#search','#teachers','#students'].includes(location.hash) ? location.hash : '#home';
-      const link = document.getElementById('openApp');
-      link.href = target.href;
-      link.hidden = false;
-      document.getElementById('status').textContent = 'กำลังเปิดระบบ หากไม่เปลี่ยนหน้าให้กดปุ่มด้านล่าง';
-      location.replace(target.href);
-    } catch {
-      document.getElementById('status').textContent = 'ผู้ดูแลต้องตั้งค่า APP_URL ในไฟล์ index.html เป็นลิงก์ Apps Script ที่ลงท้าย /exec ก่อนเปิดใช้งาน';
-    }
-  </script>
+  <footer class="footer"><div class="footer-inner"><button id="adminEntry" type="button" class="admin-entry"><span data-icon="lock"></span>ผู้ดูแลระบบ</button><span>© <span id="year"></span> SRNR NEXT · วิทยาลัยเทคนิคสุรนารี</span><span class="footer-brand">by งานศูนย์ดิจิทัลและสื่อสารองค์กร</span></div></footer>
+  <nav class="mobile-nav" aria-label="เมนูมือถือ"><a href="#home" data-nav="home"><span data-icon="home"></span>Home</a><a href="#search" data-nav="search"><span data-icon="search"></span>Search</a><a href="#teachers" data-nav="teachers"><span data-icon="briefcase"></span>ครู</a><a href="#students" data-nav="students"><span data-icon="graduation"></span>นักเรียน</a></nav>
+  <dialog id="loginDialog" class="dialog login-dialog" aria-labelledby="loginTitle">
+    <button type="button" class="dialog-close icon-button" data-close="loginDialog" aria-label="ปิด"><span data-icon="close"></span></button>
+    <div class="dialog-emblem"><span data-icon="lock"></span></div><div class="eyebrow muted">ADMIN WORKSPACE</div><h2 id="loginTitle">ผู้ดูแลระบบ</h2><p class="dialog-description">จัดการโปรแกรมและข้อมูลของ SRNR NEXT</p>
+    <form id="loginForm"><label class="field">รหัสผ่านผู้ดูแล<input id="adminPassword" type="password" autocomplete="current-password" required maxlength="128" placeholder="กรอกรหัสผ่าน" aria-describedby="loginError"></label><p id="loginError" class="form-error" role="alert"></p><button type="submit" class="primary-button full-width">เข้าสู่ระบบ</button></form>
+  </dialog>
+  <dialog id="adminDialog" class="dialog admin-dialog" aria-labelledby="adminTitle">
+    <div class="admin-heading"><div><div class="eyebrow muted">ADMIN WORKSPACE</div><h2 id="adminTitle">จัดการ SRNR NEXT</h2></div><button type="button" id="logoutButton" class="secondary-button">ออกจากระบบ</button><button type="button" class="icon-button" data-close="adminDialog" aria-label="ปิดหน้าผู้ดูแล"><span data-icon="close"></span></button></div>
+    <div class="admin-tabs" role="tablist" aria-label="หน้าผู้ดูแล"><button type="button" id="programsTab" role="tab" aria-selected="true" aria-controls="programsPanel" data-tab="programsPanel">โปรแกรม</button><button type="button" id="reportsTab" role="tab" aria-selected="false" aria-controls="reportsPanel" data-tab="reportsPanel" tabindex="-1">รายงานปัญหา</button><button type="button" id="settingsTab" role="tab" aria-selected="false" aria-controls="settingsPanel" data-tab="settingsPanel" tabindex="-1">ตั้งค่า</button></div>
+    <section id="programsPanel" role="tabpanel" aria-labelledby="programsTab">
+      <div class="admin-layout"><div><div class="admin-list-heading"><h3>รายการโปรแกรม</h3><button type="button" id="newProgramButton" class="secondary-button">+ เพิ่มใหม่</button></div><div id="adminList" class="admin-list"></div></div>
+        <form id="programForm" class="editor-form"><h3 id="editorTitle">เพิ่มโปรแกรมใหม่</h3><input type="hidden" id="programId"><label class="field">ชื่อโปรแกรม<input id="programName" required maxlength="100" placeholder="เช่น ระบบทะเบียนนักเรียน"></label><label class="field">คำอธิบาย<textarea id="programDescription" maxlength="500" rows="2" placeholder="อธิบายการใช้งานสั้น ๆ"></textarea></label><label class="field">หมวดหมู่<select id="programCategory"><option value="teacher">สำหรับครู</option><option value="student">สำหรับนักเรียน</option><option value="all">ครูและนักเรียน</option></select></label><label class="field">หมวดย่อย (ไม่จำเป็น)<input id="programSubcategory" maxlength="60" list="subcategorySuggestions" placeholder="เช่น งานวิชาการ หรือเอกสารและแบบฟอร์ม"></label><datalist id="subcategorySuggestions"></datalist><label class="field">แท็กคำค้น (ไม่จำเป็น)<input id="programTags" maxlength="400" placeholder="เช่น เกรด, ผลการเรียน, ลงทะเบียน" aria-describedby="tagsHint"></label><p id="tagsHint" class="field-hint">คั่นแต่ละคำด้วยจุลภาค (,) ได้สูงสุด 12 คำ คำละ 30 ตัวอักษร</p><label class="field">ลิงก์เข้าใช้งาน<input id="programUrl" type="url" required maxlength="2000" placeholder="https://…"></label><label class="field">ลิงก์โลโก้จาก Drive หรือ URL รูปภาพ<input id="programLogo" type="url" maxlength="2000" placeholder="https://drive.google.com/file/d/…/view"></label><p class="field-hint">รูปจาก Drive ต้องเปิดการเข้าถึง “ทุกคนที่มีลิงก์” เป็นผู้ดู</p><div class="form-row"><label class="field">ลำดับแสดง<input id="programOrder" type="number" value="0" min="0" max="9999" step="1" required></label><label class="field">สีไอคอน<select id="programColor"><option value="blue">ฟ้า</option><option value="indigo">น้ำเงิน</option><option value="teal">เขียวอมฟ้า</option><option value="orange">ส้ม</option><option value="purple">ม่วง</option></select></label></div><label class="field">สถานะโปรแกรม<select id="programServiceStatus"><option value="ready">พร้อมใช้งาน</option><option value="maintenance">ปิดปรับปรุง</option></select></label><label class="field">ข้อความสถานะ (ไม่จำเป็น)<textarea id="programStatusNote" rows="2" maxlength="200" placeholder="เช่น กำลังอัปเดตระบบ กรุณากลับมาใช้งานภายหลัง"></textarea></label><details id="programInfoFields" class="editor-details"><summary>วิธีใช้งานและช่องทางติดต่อ (ไม่จำเป็น)</summary><label class="field">วิธีใช้งาน<textarea id="programHowTo" rows="4" maxlength="2000" placeholder="ระบุขั้นตอนการใช้งานทีละบรรทัด"></textarea></label><label class="field">สิ่งที่ต้องเตรียม<textarea id="programRequirements" rows="2" maxlength="1000" placeholder="เช่น บัญชีระบบทะเบียน หรือรหัสนักเรียน"></textarea></label><label class="field">หน่วยงานและช่องทางติดต่อ<textarea id="programContact" rows="2" maxlength="500" placeholder="ชื่อหน่วยงานและช่องทางติดต่อที่เผยแพร่ได้"></textarea></label><label class="field">ลิงก์ช่องทางติดต่อ<input id="programContactUrl" type="url" maxlength="2000" placeholder="https://…"></label><p class="field-hint">ข้อมูลส่วนนี้แสดงสาธารณะ กรุณาใส่เฉพาะข้อมูลที่เผยแพร่ได้</p></details><label class="checkbox-label"><input type="checkbox" id="programVisible" checked> แสดงโปรแกรมบนหน้าเว็บ</label><label class="checkbox-label recommended-option"><input type="checkbox" id="programRecommended"> ปักหมุดเป็นโปรแกรมแนะนำ</label><p id="programError" class="form-error" role="alert"></p><button type="submit" class="primary-button full-width">บันทึกโปรแกรม</button></form>
+      </div>
+    </section>
+    <section id="settingsPanel" role="tabpanel" aria-labelledby="settingsTab" hidden>
+      <form id="settingsForm" class="settings-form"><h3>ข้อมูลหน้าเว็บ</h3><label class="field">ชื่อวิทยาลัย<input id="settingCollege" required maxlength="120"></label><label class="field">ลิงก์โลโก้วิทยาลัย<input id="settingLogo" type="url" maxlength="2000" placeholder="เว้นว่างเพื่อใช้โลโก้ที่แนบมา"></label><p class="field-hint">โลโก้ Drive ต้องเปิดให้ทุกคนที่มีลิงก์ดูได้</p><p id="settingsError" class="form-error" role="alert"></p><button type="submit" class="primary-button">บันทึกการตั้งค่า</button></form>
+      <form id="passwordForm" class="settings-form"><h3>เปลี่ยนรหัสผู้ดูแล</h3><label class="field">รหัสปัจจุบัน<input id="currentPassword" type="password" required autocomplete="current-password" maxlength="128"></label><label class="field">รหัสใหม่<input id="newPassword" type="password" required autocomplete="new-password" minlength="10" maxlength="128"></label><label class="field">ยืนยันรหัสใหม่<input id="confirmPassword" type="password" required autocomplete="new-password" minlength="10" maxlength="128"></label><p id="passwordError" class="form-error" role="alert"></p><button type="submit" class="secondary-button">เปลี่ยนรหัสผ่าน</button></form>
+    </section>
+    <section id="reportsPanel" role="tabpanel" aria-labelledby="reportsTab" hidden>
+      <div class="admin-list-heading"><div><h3>รายงานปัญหาลิงก์</h3><p id="reportsSummary" class="reports-summary"></p></div><button type="button" id="refreshReports" class="secondary-button">โหลดรายการใหม่</button></div>
+      <p id="reportsError" class="form-error" role="alert"></p><div id="reportsList" class="reports-list"></div>
+      <a id="reportsSheetLink" class="reports-sheet-link" target="_blank" rel="noopener noreferrer" hidden>ดูรายงานทั้งหมดใน Google Sheets</a>
+    </section>
+  </dialog>
+  <dialog id="detailsDialog" class="dialog details-dialog" aria-labelledby="detailsTitle">
+    <button type="button" class="dialog-close icon-button" data-close="detailsDialog" aria-label="ปิดรายละเอียดโปรแกรม"><span data-icon="close"></span></button>
+    <div id="detailsIcon" class="details-icon"></div><div id="detailsBadges" class="details-badges"></div><h2 id="detailsTitle"></h2><p id="detailsDescription" class="dialog-description"></p>
+    <div id="detailsBody" class="details-body"></div><div id="detailsActions" class="details-actions"></div><p class="field-hint details-login-hint">โปรแกรมปลายทางอาจต้องเข้าสู่ระบบด้วยบัญชีของหน่วยงานนั้น</p>
+  </dialog>
+  <dialog id="reportDialog" class="dialog report-dialog" aria-labelledby="reportTitle">
+    <button type="button" class="dialog-close icon-button" data-close="reportDialog" aria-label="ปิดแบบฟอร์มแจ้งปัญหา"><span data-icon="close"></span></button>
+    <div class="dialog-emblem"><span data-icon="flag"></span></div><h2 id="reportTitle">แจ้งปัญหาลิงก์</h2><p id="reportProgram" class="dialog-description"></p>
+    <form id="reportForm"><label class="field">พบปัญหาอะไร<select id="reportReason" required><option value="">เลือกประเภทปัญหา</option><option value="unreachable">เปิดโปรแกรมไม่ได้</option><option value="wrong_link">ลิงก์ไม่ถูกต้อง</option></select></label><label class="field">รายละเอียดเพิ่มเติม (ไม่จำเป็น)<textarea id="reportDetails" rows="3" maxlength="300" placeholder="เช่น เปิดแล้วพบหน้าที่ไม่มีข้อมูล"></textarea></label><p class="field-hint">ไม่ต้องระบุชื่อหรือข้อมูลส่วนตัว</p><p id="reportError" class="form-error" role="alert"></p><button type="submit" id="sendReport" class="primary-button full-width">ส่งรายงาน</button></form>
+  </dialog>
+  <dialog id="deleteDialog" class="dialog confirm-dialog" aria-labelledby="deleteTitle"><h2 id="deleteTitle">ลบโปรแกรมนี้?</h2><p id="deleteDescription"></p><p class="field-hint">รายการนี้จะถูกนำออกจากศูนย์รวมโปรแกรม</p><div class="confirm-actions"><button type="button" class="secondary-button" data-close="deleteDialog">ยกเลิก</button><button type="button" id="confirmDelete" class="danger-button">ลบโปรแกรม</button></div><p id="deleteError" class="form-error" role="alert"></p></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <!-- SRNR:SCRIPTS -->
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
