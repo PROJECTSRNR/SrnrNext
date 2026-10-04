@@ -85,7 +85,7 @@
     const request = nativeApi ? new Promise((resolve,reject) => { google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args); }) : window.SRNR_API.call(method,...args);
     return request.catch(err => {
       const message = err && err.message ? err.message.replace(/^Exception:\s*/, '') : 'เชื่อมต่อไม่สำเร็จ กรุณาลองอีกครั้ง';
-      if (message.includes('SESSION_EXPIRED')) { state.token = ''; state.adminPrograms = []; $('adminList').replaceChildren(); clearReports(); $('adminDialog').close(); throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'); }
+      if (message.includes('SESSION_EXPIRED')) { state.token = ''; state.adminPrograms = []; clearAdminSearch(); $('adminList').replaceChildren(); clearReports(); $('adminDialog').close(); throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'); }
       throw new Error(message);
     });
   }
@@ -413,16 +413,30 @@
   function renderAdmin() {
     const suggestions = [...new Set(state.adminPrograms.map(p => p.subcategory).filter(Boolean))].sort((a,b) => a.localeCompare(b,'th'));
     $('subcategorySuggestions').replaceChildren(...suggestions.map(value => { const option = create('option'); option.value = value; return option; }));
+    renderAdminList(); $('settingCollege').value = state.settings.collegeName; $('settingLogo').value = state.settings.collegeLogo;
+  }
+  function clearAdminSearch() { $('adminSearchInput').value = ''; $('clearAdminSearch').hidden = true; $('adminSearchSummary').textContent = ''; }
+  function renderAdminList() {
+    const query = normalizeSearch($('adminSearchInput').value).trim(), terms = query.split(/\s+/).filter(Boolean);
+    const programs = state.adminPrograms.filter(p => {
+      const searchable = normalizeSearch([p.name,p.description,categoryLabel(p.category),p.subcategory,...(p.tags || [])].join(' '));
+      return terms.every(term => searchable.includes(term));
+    }).sort((a,b) => a.order-b.order);
+    $('clearAdminSearch').hidden = !$('adminSearchInput').value;
+    $('adminSearchSummary').textContent = 'แสดง '+programs.length+' จาก '+state.adminPrograms.length+' โปรแกรม';
     const fragment = document.createDocumentFragment();
-    state.adminPrograms.sort((a,b) => a.order-b.order).forEach(p => {
+    programs.forEach(p => {
       const row = create('div','admin-item'), copy = create('div','item-copy'); copy.append(create('strong','',p.name),create('small','',categoryLabel(p.category)+' · '+(p.visible ? 'แสดง' : 'ซ่อน')+(p.recommended ? ' · แนะนำ' : '')));
       const edit = create('button','icon-button'); edit.type = 'button'; edit.innerHTML = icon('edit'); edit.setAttribute('aria-label','แก้ไข '+p.name); edit.onclick = () => fillEditor(p);
       const remove = create('button','icon-button delete-button'); remove.type = 'button'; remove.innerHTML = icon('trash'); remove.setAttribute('aria-label','ลบ '+p.name); remove.onclick = () => { state.deleteId = p.id; $('deleteDescription').textContent = p.name; $('deleteError').textContent = ''; $('deleteDialog').showModal(); };
       row.append(programIcon(p),copy,edit,remove); fragment.append(row);
     });
-    if (!state.adminPrograms.length) fragment.append(create('p','field-hint','ยังไม่มีโปรแกรม เริ่มเพิ่มรายการแรกได้เลย'));
-    $('adminList').replaceChildren(fragment); $('settingCollege').value = state.settings.collegeName; $('settingLogo').value = state.settings.collegeLogo;
+    if (!programs.length) fragment.append(create('p','admin-search-empty',state.adminPrograms.length ? 'ไม่พบโปรแกรมที่ตรงกับคำค้น ลองเปลี่ยนคำค้นหรือล้างคำค้น' : 'ยังไม่มีโปรแกรม เริ่มเพิ่มรายการแรกได้เลย'));
+    $('adminList').replaceChildren(fragment); $('adminList').scrollTop = 0;
   }
+  $('adminSearchInput').addEventListener('input',renderAdminList);
+  $('adminSearchInput').addEventListener('keydown',event => { if(event.key === 'Escape' && $('adminSearchInput').value) { event.preventDefault(); event.stopPropagation(); clearAdminSearch(); renderAdminList(); } });
+  $('clearAdminSearch').onclick = () => { clearAdminSearch(); renderAdminList(); $('adminSearchInput').focus(); };
   async function refreshAdmin() { const data = await call('getAdminData',state.token); state.adminPrograms = data.programs; state.settings = data.settings; state.revision = data.revision; renderAdmin(); }
   async function busy(form,fn) {
     if (form.dataset.busy) return; form.dataset.busy = 'true';
@@ -437,11 +451,11 @@
   };
   $('loginForm').onsubmit = event => { event.preventDefault(); const password = $('adminPassword').value; $('adminPassword').value = ''; busy($('loginForm'),async () => {
     $('loginError').textContent = '';
-    try { const result = await call('loginAdmin',password); state.token = result.token; await refreshAdmin(); clearEditor(); activateTab($('programsTab')); $('loginDialog').close(); $('adminDialog').showModal(); }
+    try { const result = await call('loginAdmin',password); state.token = result.token; clearAdminSearch(); await refreshAdmin(); clearEditor(); activateTab($('programsTab')); $('loginDialog').close(); $('adminDialog').showModal(); }
     catch(err) { state.token = ''; $('loginError').textContent = err.message; }
   }); };
   function clearReports() { reportsGeneration++; $('reportsList').replaceChildren(); $('reportsSummary').textContent = ''; $('reportsError').textContent = ''; $('reportsSheetLink').hidden = true; }
-  $('logoutButton').onclick = async () => { const token = state.token; state.token = ''; state.adminPrograms = []; $('adminList').replaceChildren(); clearReports(); clearEditor(); $('adminDialog').close(); try { await call('logoutAdmin',token); } catch {} toast('ออกจากระบบแล้ว'); };
+  $('logoutButton').onclick = async () => { const token = state.token; state.token = ''; state.adminPrograms = []; clearAdminSearch(); $('adminList').replaceChildren(); clearReports(); clearEditor(); $('adminDialog').close(); try { await call('logoutAdmin',token); } catch {} toast('ออกจากระบบแล้ว'); };
   $('newProgramButton').onclick = () => { clearEditor(); $('programName').focus(); };
   const tabButtons = [...document.querySelectorAll('[data-tab]')];
   function activateTab(el) { tabButtons.forEach(tab => { const active = tab === el; tab.setAttribute('aria-selected',String(active)); tab.tabIndex = active ? 0 : -1; $(tab.dataset.tab).hidden = !active; }); if(el.dataset.tab === 'reportsPanel') refreshReports(); }
