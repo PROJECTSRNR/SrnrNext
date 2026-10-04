@@ -30,6 +30,10 @@
   const nativeApi = !!(window.google && google.script && google.script.run);
   const hostedApi = window.SRNR_API && typeof window.SRNR_API.call === 'function';
   const preview = !(nativeApi || hostedApi);
+  const publicCache = !preview && window.SRNR_PUBLIC_CACHE ? window.SRNR_PUBLIC_CACHE.create({
+    storage:{getItem:key => localStorage.getItem(key),setItem:(key,value) => localStorage.setItem(key,value),removeItem:key => localStorage.removeItem(key)},
+    key:'srnr-public-v1:'+new URL('.',location.href).href+':'+(hostedApi ? window.SRNR_CONFIG && window.SRNR_CONFIG.apiUrl || 'hosted' : 'native')
+  }) : null;
   const demo = [
     {id:'demo1',name:'ระบบทะเบียนนักเรียน',description:'ตรวจสอบข้อมูลนักเรียนและผลการเรียน',category:'student',color:'blue',icon:'graduation',subcategory:'ทะเบียนและผลการเรียน',tags:['เกรด','ผลการเรียน','ลงทะเบียน'],howTo:'1. เปิดโปรแกรมจากลิงก์ของวิทยาลัย\n2. เข้าสู่ระบบด้วยบัญชีที่หน่วยงานกำหนด\n3. เลือกภาคเรียนเพื่อดูผลการเรียน',requirements:'บัญชีผู้ใช้งานระบบทะเบียนของวิทยาลัย',contact:'ตัวอย่างหน่วยงาน: งานทะเบียน — ผู้ดูแลต้องใส่ช่องทางติดต่อจริงก่อนเผยแพร่'},
     {id:'demo2',name:'ระบบงานวิชาการ',description:'จัดการรายวิชาและข้อมูลการสอน',category:'teacher',color:'indigo',icon:'book',subcategory:'งานวิชาการ',tags:['รายวิชา','บันทึกคะแนน','การสอน']},
@@ -45,7 +49,7 @@
   }
   let favorites = new Set();
   try { favorites = readFavorites(localStorage.getItem(favoritesKey)); } catch {}
-  const state = {programs:[],settings:{collegeName:'วิทยาลัยเทคนิคสุรนารี',collegeLogo:''},filter:'all',subcategory:'',favoritesOnly:false,token:'',adminPrograms:[],revision:'',deleteId:'',loaded:false};
+  const state = {programs:[],settings:{collegeName:'วิทยาลัยเทคนิคสุรนารี',collegeLogo:''},filter:'all',subcategory:'',favoritesOnly:false,token:'',adminPrograms:[],revision:'',deleteId:'',loaded:false,publicStale:false,publicSavedAt:0};
   const defaultLogo = $('collegeLogo').getAttribute('src');
   let toastTimer, loadGeneration = 0;
   let reportGeneration = 0, reportContext = null;
@@ -97,6 +101,7 @@
     const button = create('button','launch',maintenance ? 'ปิดปรับปรุง' : preview ? 'ตัวอย่างโปรแกรม' : 'ยังไม่มีลิงก์'); button.type = 'button'; button.disabled = true; return button;
   }
   function openDetails(p) {
+    $('detailsDialog').dataset.programId = p.id;
     $('detailsTitle').textContent = p.name;
     $('detailsIcon').replaceChildren(programIcon(p));
     const badges = [create('span','category-badge',categoryLabel(p.category))];
@@ -104,7 +109,7 @@
     $('detailsBadges').replaceChildren(...badges);
     $('detailsDescription').textContent = p.description || 'เครื่องมือสำหรับชาวเทคนิคสุรนารี';
     const body = document.createDocumentFragment(), maintenance = p.serviceStatus === 'maintenance';
-    body.append(create('div','program-health'+(maintenance ? ' maintenance' : ''),maintenance ? 'ปิดปรับปรุง' : 'พร้อมใช้งาน'));
+    body.append(create('div','program-health'+(maintenance ? ' maintenance' : ''),(state.publicStale ? 'สถานะล่าสุด: ' : '')+(maintenance ? 'ปิดปรับปรุง' : 'พร้อมใช้งาน')));
     if(p.statusNote) body.append(create('p','detail-note',p.statusNote));
     if(p.tags && p.tags.length) { const tags = create('div','detail-tags'); p.tags.forEach(tag => tags.append(create('span','tag-chip',tag))); body.append(tags); }
     [['สำหรับใคร',categoryLabel(p.category)],['วิธีใช้งาน',p.howTo || 'ผู้ดูแลยังไม่ได้ระบุวิธีใช้งาน'],['สิ่งที่ต้องเตรียม',p.requirements || 'ผู้ดูแลยังไม่ได้ระบุสิ่งที่ต้องเตรียม'],['หน่วยงานและช่องทางติดต่อ',p.contact || 'ผู้ดูแลยังไม่ได้ระบุช่องทางติดต่อ']].forEach(([title,value]) => {
@@ -167,7 +172,7 @@
       if(p.recommended) { const badge = create('span','recommended-badge'); badge.innerHTML = icon('star'); badge.append(document.createTextNode('แนะนำ')); card.append(badge); }
       card.append(create('h3','',p.name),create('p','',p.description || 'เครื่องมือสำหรับชาวเทคนิคสุรนารี'));
       if(p.subcategory) card.append(create('span','subcategory-badge card-subcategory',p.subcategory));
-      const health = create('div','program-health'+(maintenance ? ' maintenance' : ''),maintenance ? 'ปิดปรับปรุง' : 'พร้อมใช้งาน');
+      const health = create('div','program-health'+(maintenance ? ' maintenance' : ''),(state.publicStale ? 'สถานะล่าสุด: ' : '')+(maintenance ? 'ปิดปรับปรุง' : 'พร้อมใช้งาน'));
       card.append(health);
       if(p.statusNote) card.append(create('p','service-note'+(maintenance ? ' maintenance-note' : ''),p.statusNote));
       card.append(bottom); fragment.append(card);
@@ -193,14 +198,43 @@
     $('collegeLogo').src = url; $('collegeLogo').onerror = () => { $('collegeLogo').onerror = null; $('collegeLogo').src = defaultLogo; };
     $('collegeLogo').alt = 'ตรา'+settings.collegeName;
   }
-  async function load() {
-    const generation = ++loadGeneration; state.loaded = false; $('loadingState').hidden = false; $('errorState').hidden = true; $('emptyState').hidden = true; $('programGrid').replaceChildren(); $('connectionStatus').textContent = 'กำลังโหลดข้อมูล'; $('connectionStatus').classList.remove('connected');
+  function publicNotice(message, retry = false) {
+    $('publicDataNotice').hidden = !message;
+    $('publicDataMessage').textContent = message;
+    $('refreshPublicButton').hidden = !retry;
+  }
+  function publicTime() { return new Date(state.publicSavedAt).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
+  async function load({freshOnly = false} = {}) {
+    const generation = ++loadGeneration;
+    if (freshOnly) { if(publicCache) publicCache.clear(); state.loaded = false; state.programs = []; state.publicSavedAt = 0; render(); }
+    if (!state.loaded && publicCache) {
+      const cached = publicCache.read();
+      if (cached) { state.programs = cached.data.programs; state.settings = cached.data.settings; state.loaded = true; state.publicSavedAt = cached.savedAt; applySettings(); }
+    }
+    const showingSaved = !preview && state.loaded;
+    state.publicStale = showingSaved;
+    $('loadingState').hidden = showingSaved; $('errorState').hidden = true; $('emptyState').hidden = true;
+    if (showingSaved) { render(); publicNotice('รายการที่บันทึกไว้เมื่อ '+publicTime()+' · กำลังตรวจสอบข้อมูลล่าสุด'); }
+    else { $('programGrid').replaceChildren(); publicNotice(''); }
+    $('connectionStatus').textContent = showingSaved ? 'กำลังอัปเดตข้อมูล' : 'กำลังโหลดข้อมูล'; $('connectionStatus').classList.remove('connected');
     try {
       const data = preview ? {programs:demo,settings:state.settings} : await call('getPublicData');
       if (generation !== loadGeneration) return;
-      state.programs = data.programs; state.settings = data.settings; state.loaded = true; applySettings(); render();
+      state.programs = data.programs; state.settings = data.settings; state.loaded = true; state.publicStale = false; state.publicSavedAt = Date.now();
+      if(publicCache) publicCache.write(data);
+      applySettings(); render(); publicNotice(preview ? '' : 'อัปเดตล่าสุด '+publicTime());
+      if($('detailsDialog').open) {
+        const current = state.programs.find(p => p.visible && p.id === $('detailsDialog').dataset.programId);
+        if(current) openDetails(current);
+        else { $('detailsDialog').close(); toast('โปรแกรมนี้ไม่มีในรายการล่าสุดแล้ว'); }
+      }
       $('previewNotice').hidden = !preview; $('connectionStatus').textContent = preview ? 'โหมดตัวอย่าง' : 'พร้อมใช้งาน'; $('connectionStatus').classList.toggle('connected',!preview);
-    } catch(err) { if (generation !== loadGeneration) return; $('errorState').hidden = false; $('errorMessage').textContent = err.message; $('connectionStatus').textContent = 'เชื่อมต่อไม่สำเร็จ'; $('resultsCount').textContent = ''; }
+    } catch(err) {
+      if (generation !== loadGeneration) return;
+      $('connectionStatus').textContent = showingSaved ? 'ข้อมูลที่บันทึกไว้' : 'เชื่อมต่อไม่สำเร็จ';
+      if (showingSaved) publicNotice('ยังตรวจสอบข้อมูลล่าสุดไม่ได้ · แสดงรายการจาก '+publicTime()+' สถานะและลิงก์อาจเปลี่ยนแปลง · '+err.message,true);
+      else { $('errorState').hidden = false; $('errorMessage').textContent = err.message; $('resultsCount').textContent = ''; }
+    }
     finally { if (generation === loadGeneration) $('loadingState').hidden = true; }
   }
   function route() {
@@ -228,7 +262,8 @@
   $('clearSearch').onclick = () => { $('searchInput').value = ''; state.filter = 'all'; state.subcategory = ''; if(location.hash === '#favorites') location.hash = 'home'; else { state.favoritesOnly = false; render(); } };
   $('favoritesButton').onclick = () => { location.hash = state.favoritesOnly ? 'home' : 'favorites'; };
   window.addEventListener('storage',event => { if(event.key === favoritesKey || event.key === null) { favorites = readFavorites(event.key === null ? null : event.newValue); render(); } });
-  $('retryButton').onclick = load;
+  $('retryButton').onclick = () => load();
+  $('refreshPublicButton').onclick = () => load();
   window.addEventListener('hashchange',route);
   document.querySelectorAll('[data-nav],.brand').forEach(link => { link.addEventListener('click',() => { if(link.getAttribute('href') === location.hash) route(); }); });
   document.addEventListener('keydown',event => { if(event.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) && !document.querySelector('dialog[open]')) { event.preventDefault(); location.hash = 'search'; $('searchInput').focus(); } });
@@ -276,15 +311,15 @@
   tabButtons.forEach((el,i) => { el.onclick = () => activateTab(el); el.onkeydown = event => { if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) { event.preventDefault(); const target = event.key === 'Home' ? tabButtons[0] : event.key === 'End' ? tabButtons.at(-1) : tabButtons[(i+(event.key === 'ArrowRight' ? 1 : tabButtons.length-1))%tabButtons.length]; activateTab(target); target.focus(); } }; });
   $('programForm').onsubmit = event => { event.preventDefault(); const program = {id:$('programId').value,name:$('programName').value.trim(),description:$('programDescription').value.trim(),category:$('programCategory').value,url:$('programUrl').value.trim(),logo:$('programLogo').value.trim(),order:Number($('programOrder').value),color:$('programColor').value,visible:$('programVisible').checked,recommended:$('programRecommended').checked,serviceStatus:$('programServiceStatus').value,statusNote:$('programStatusNote').value.trim(),subcategory:$('programSubcategory').value.trim(),tags:$('programTags').value.split(/[,，\n]/).map(tag => tag.trim()).filter(Boolean),howTo:$('programHowTo').value.trim(),requirements:$('programRequirements').value.trim(),contact:$('programContact').value.trim(),contactUrl:$('programContactUrl').value.trim()}; busy($('programForm'),async () => {
     $('programError').textContent = '';
-    try { const result = await call('saveProgram',state.token,program,state.revision); state.revision = result.revision; await refreshAdmin(); clearEditor(); await load(); toast(result.backupWarning || 'บันทึกโปรแกรมแล้ว'); }
+    try { const result = await call('saveProgram',state.token,program,state.revision); state.revision = result.revision; await load({freshOnly:true}); await refreshAdmin(); clearEditor(); toast(result.backupWarning || 'บันทึกโปรแกรมแล้ว'); }
     catch(err) { $('programError').textContent = err.message; if(err.message.includes('ข้อมูลมีการเปลี่ยนแปลง')) await refreshAdmin().catch(() => {}); }
   }); };
   $('confirmDelete').onclick = () => busy($('deleteDialog'),async () => {
-    try { const result = await call('deleteProgram',state.token,state.deleteId,state.revision); state.revision = result.revision; $('deleteDialog').close(); clearEditor(); await refreshAdmin(); await load(); toast(result.backupWarning || 'ลบโปรแกรมแล้ว'); }
+    try { const result = await call('deleteProgram',state.token,state.deleteId,state.revision); state.revision = result.revision; $('deleteDialog').close(); await load({freshOnly:true}); await refreshAdmin(); toast(result.backupWarning || 'ลบโปรแกรมแล้ว'); }
     catch(err) { $('deleteError').textContent = err.message; }
   });
   $('settingsForm').onsubmit = event => { event.preventDefault(); const settings = {collegeName:$('settingCollege').value.trim(),collegeLogo:$('settingLogo').value.trim()}; busy($('settingsForm'),async () => {
-    $('settingsError').textContent = ''; try { const result = await call('saveSettings',state.token,settings,state.revision); state.revision = result.revision; await refreshAdmin(); await load(); toast(result.backupWarning || 'บันทึกการตั้งค่าแล้ว'); } catch(err) { $('settingsError').textContent = err.message; }
+    $('settingsError').textContent = ''; try { const result = await call('saveSettings',state.token,settings,state.revision); state.revision = result.revision; await load({freshOnly:true}); await refreshAdmin(); toast(result.backupWarning || 'บันทึกการตั้งค่าแล้ว'); } catch(err) { $('settingsError').textContent = err.message; }
   }); };
   $('passwordForm').onsubmit = event => { event.preventDefault(); $('passwordError').textContent = ''; if($('newPassword').value !== $('confirmPassword').value) { $('passwordError').textContent = 'รหัสใหม่และรหัสยืนยันไม่ตรงกัน'; return; } const current = $('currentPassword').value, next = $('newPassword').value; $('passwordForm').reset(); busy($('passwordForm'),async () => {
     try { await call('changeAdminPassword',state.token,current,next); state.token = ''; clearReports(); $('adminDialog').close(); toast('เปลี่ยนรหัสแล้ว กรุณาเข้าสู่ระบบด้วยรหัสใหม่'); } catch(err) { $('passwordError').textContent = err.message; }

@@ -64,6 +64,7 @@
       <div class="quick-views"><button type="button" id="favoritesButton" class="favorites-button" aria-pressed="false"><span data-icon="star"></span>รายการโปรด <span id="favoritesCount" class="favorites-count">0</span></button><span>กดดาวเพื่อเก็บโปรแกรมที่ใช้บ่อยไว้ในเครื่องนี้</span></div>
       <label class="subcategory-filter" for="subcategoryFilter"><span>หมวดย่อย</span><select id="subcategoryFilter"><option value="">ทุกหมวดย่อย</option></select></label>
       <div id="previewNotice" class="preview-notice" hidden>หน้าตัวอย่างการออกแบบ · รายการด้านล่างยังไม่ได้เชื่อมระบบจริง</div>
+      <div id="publicDataNotice" class="public-data-notice" role="status" hidden><span id="publicDataMessage"></span><button type="button" id="refreshPublicButton" class="secondary-button" hidden>ตรวจข้อมูลล่าสุดอีกครั้ง</button></div>
       <div id="errorState" class="state-box" hidden><span data-icon="cloud"></span><h3>ยังโหลดข้อมูลไม่ได้</h3><p id="errorMessage"></p><button type="button" id="retryButton" class="primary-button">ลองอีกครั้ง</button></div>
       <div id="loadingState" class="program-grid" aria-label="กำลังโหลดโปรแกรม"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
       <div id="programGrid" class="program-grid" aria-live="polite"></div>
@@ -135,6 +136,7 @@
   <script src="pwa.js"></script>
   <!-- SRNR:PWA:END -->
   <script src="api.js"></script>
+  <script src="public-cache.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
