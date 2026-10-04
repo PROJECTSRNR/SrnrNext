@@ -23,7 +23,11 @@
     monitor:'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/>',
     users:'<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v2"/>',
     star:'<path d="m12 3 2.8 5.7 6.3.9-4.5 4.4 1 6.2L12 17.3l-5.6 2.9 1-6.2L3 9.6l6.2-.9Z"/>',
-    flag:'<path d="M5 21V3m0 1c5-3 9 3 14 0v10c-5 3-9-3-14 0"/>'
+    flag:'<path d="M5 21V3m0 1c5-3 9 3 14 0v10c-5 3-9-3-14 0"/>',
+    settings:'<path d="m9 3-.6 3-2 1.2-2.9-1-2 3.5 2.3 2v2.6l-2.3 2 2 3.5 2.9-1 2 1.2.6 3h4l.6-3 2-1.2 2.9 1 2-3.5-2.3-2v-2.6l2.3-2-2-3.5-2.9 1-2-1.2-.6-3Z"/><circle cx="11" cy="13" r="3"/>',
+    pin:'<path d="M9 3h6l-1 6 4 4v2H6v-2l4-4ZM12 15v6"/>',
+    grip:'<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
+    up:'<path d="m6 14 6-6 6 6"/>',down:'<path d="m6 10 6 6 6-6"/>'
   };
   function icon(name) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (icons[name] || icons.layers) + '</svg>'; }
   document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
@@ -43,15 +47,22 @@
     {id:'demo6',name:'ระบบเอกสารออนไลน์',description:'รวมแบบฟอร์มและเอกสารสำหรับครู',category:'teacher',color:'blue',icon:'document',subcategory:'เอกสารและแบบฟอร์ม',tags:['เอกสาร','แบบฟอร์ม','ดาวน์โหลด']}
   ].map((p,i) => ({...p,order:i,visible:true,recommended:i === 0 || i === 2,serviceStatus:i === 3 ? 'maintenance' : 'ready',statusNote:i === 3 ? 'กำลังอัปเดตระบบ กรุณากลับมาใช้งานภายหลัง' : '',url:'',logo:''}));
   const favoritesKey = 'srnr-favorites-v1'+(preview ? ':preview' : ':live');
+  const layoutKey = 'srnr-layout-v1:'+new URL('.',location.href).href+':'+(preview ? 'preview' : 'live');
+  const layoutAvailable = !!window.SRNR_PERSONAL_LAYOUT;
+  const personalLayout = layoutAvailable ? window.SRNR_PERSONAL_LAYOUT.create({key:layoutKey,storage:{getItem:key => localStorage.getItem(key),setItem:(key,value) => localStorage.setItem(key,value),removeItem:key => localStorage.removeItem(key)}}) : {
+    ordered:programs => [...programs].sort((a,b) => Number(!!b.recommended)-Number(!!a.recommended) || a.order-b.order || a.name.localeCompare(b.name,'th')),
+    isPinned:() => false,snapshot:() => ({order:[],pinned:[]}),reload() {}
+  };
   function readFavorites(value) {
     try { const parsed = JSON.parse(value || '[]'); return new Set(Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string' && id.length > 0 && id.length <= 100).slice(0,500) : []); }
     catch { return new Set(); }
   }
   let favorites = new Set();
   try { favorites = readFavorites(localStorage.getItem(favoritesKey)); } catch {}
-  const state = {programs:[],settings:{collegeName:'วิทยาลัยเทคนิคสุรนารี',collegeLogo:''},filter:'all',subcategory:'',favoritesOnly:false,token:'',adminPrograms:[],revision:'',deleteId:'',loaded:false,publicStale:false,publicSavedAt:0};
+  const state = {programs:[],settings:{collegeName:'วิทยาลัยเทคนิคสุรนารี',collegeLogo:''},filter:'all',subcategory:'',favoritesOnly:false,token:'',adminPrograms:[],revision:'',deleteId:'',loaded:false,publicStale:false,publicSavedAt:0,editingLayout:false};
   const defaultLogo = $('collegeLogo').getAttribute('src');
   let toastTimer, loadGeneration = 0;
+  let layoutDrag = null, suppressLayoutClickUntil = 0;
   let reportGeneration = 0, reportContext = null;
   let deviceId = '';
   try { deviceId = localStorage.getItem('srnr-report-device-v1') || ''; } catch {}
@@ -90,7 +101,7 @@
       const all = create('option','','ทุกหมวดย่อย'); all.value = '';
       select.replaceChildren(all,...values.map(value => { const option = create('option','',value); option.value = value; return option; }));
     }
-    select.value = state.subcategory; select.disabled = !values.length;
+    select.value = state.subcategory; select.disabled = !values.length || state.editingLayout;
   }
   function launchControl(p) {
     const maintenance = p.serviceStatus === 'maintenance', url = safeUrl(p.url, true);
@@ -142,15 +153,26 @@
     return el;
   }
   function render() {
+    cancelLayoutDrag();
     renderSubcategories();
     const query = normalizeSearch($('searchInput').value.trim()), terms = query.split(/\s+/).filter(Boolean);
     const selected = state.programs.filter(p => p.visible && (!state.favoritesOnly || favorites.has(p.id)) && (state.filter === 'all' || p.category === state.filter || p.category === 'all') && (!state.subcategory || p.subcategory === state.subcategory));
-    const programs = selected.filter(p => { const searchable = normalizeSearch([p.name,p.description,categoryLabel(p.category),p.subcategory,...(p.tags || [])].join(' ')); return terms.every(term => searchable.includes(term)); }).sort((a,b) => Number(!!b.recommended)-Number(!!a.recommended) || a.order-b.order || a.name.localeCompare(b.name,'th'));
+    const programs = personalLayout.ordered(selected.filter(p => { const searchable = normalizeSearch([p.name,p.description,categoryLabel(p.category),p.subcategory,...(p.tags || [])].join(' ')); return terms.every(term => searchable.includes(term)); }));
+    const groupPositions = new Map(), groupSizes = new Map([[true,0],[false,0]]);
+    programs.forEach(p => { const pinned = personalLayout.isPinned(p.id); groupPositions.set(p.id,groupSizes.get(pinned)); groupSizes.set(pinned,groupSizes.get(pinned)+1); });
+    $('layoutToolbar').hidden = !state.editingLayout; $('programGrid').classList.toggle('arranging',state.editingLayout);
+    $('searchInput').disabled = state.editingLayout; $('favoritesButton').disabled = state.editingLayout;
+    $('personalSettingsButton').disabled = !layoutAvailable;
+    if(!layoutAvailable) $('personalSettingsButton').title = 'โหลดเครื่องมือจัดหน้าไม่สำเร็จ กรุณาโหลดหน้าใหม่';
+    $('startLayoutButton').disabled = !layoutAvailable || !state.loaded || !state.programs.some(p => p.visible);
+    $('startLayoutButton').textContent = state.editingLayout ? 'กลับไปจัดหน้าโปรแกรม' : 'จัดเรียงและปักหมุดโปรแกรม';
     $('totalCount').textContent = selected.length;
     $('sectionTitle').firstChild.textContent = state.favoritesOnly ? 'รายการโปรดของฉัน ' : state.filter === 'teacher' ? 'โปรแกรมสำหรับครู ' : state.filter === 'student' ? 'โปรแกรมสำหรับนักเรียน ' : location.hash === '#search' ? 'ค้นหาโปรแกรม ' : 'โปรแกรมทั้งหมด ';
     const fragment = document.createDocumentFragment();
     programs.forEach(p => {
       const card = create('article','program-card'+(p.recommended ? ' recommended-card' : ''));
+      card.dataset.programId = p.id;
+      if(personalLayout.isPinned(p.id)) card.classList.add('personally-pinned');
       const top = create('div','card-top'), controls = create('div','card-controls');
       const favorite = create('button','favorite-star'+(favorites.has(p.id) ? ' saved' : ''));
       favorite.type = 'button'; favorite.dataset.programId = p.id; favorite.innerHTML = icon('star');
@@ -165,12 +187,17 @@
       const actions = create('div','card-actions');
       const detail = create('button','details-link','รายละเอียด'); detail.type = 'button'; detail.setAttribute('aria-label','รายละเอียด: '+p.name); detail.onclick = () => openDetails(p);
       const report = create('button','report-link','แจ้งปัญหาลิงก์'); report.type='button'; report.setAttribute('aria-label','แจ้งปัญหาลิงก์: '+p.name); report.onclick = () => openReport(p);
-      const launch = launchControl(p);
+      const launch = state.editingLayout ? create('button','launch','โหมดจัดหน้า') : launchControl(p);
+      if(state.editingLayout) { launch.type = 'button'; launch.disabled = true; }
       if (launch.tagName === 'A') card.classList.add('launchable-card');
       actions.append(detail,report); bottom.append(actions,launch);
       card.append(top);
-      if(p.recommended) { const badge = create('span','recommended-badge'); badge.innerHTML = icon('star'); badge.append(document.createTextNode('แนะนำ')); card.append(badge); }
+      const badges = create('div','card-badges');
+      if(personalLayout.isPinned(p.id)) { const badge = create('span','personal-pin-badge'); badge.innerHTML = icon('pin'); badge.append(document.createTextNode('ปักหมุด')); badges.append(badge); }
+      if(p.recommended) { const badge = create('span','recommended-badge'); badge.innerHTML = icon('star'); badge.append(document.createTextNode('แนะนำ')); badges.append(badge); }
+      if(badges.childNodes.length) card.append(badges);
       card.append(create('h3','',p.name),create('p','',p.description || 'เครื่องมือสำหรับชาวเทคนิคสุรนารี'));
+      if(state.editingLayout) card.append(layoutControls(p,groupPositions.get(p.id),groupSizes.get(personalLayout.isPinned(p.id))));
       if(p.subcategory) card.append(create('span','subcategory-badge card-subcategory',p.subcategory));
       const health = create('div','program-health'+(maintenance ? ' maintenance' : ''),(state.publicStale ? 'สถานะล่าสุด: ' : '')+(maintenance ? 'ปิดปรับปรุง' : 'พร้อมใช้งาน'));
       card.append(health);
@@ -188,8 +215,98 @@
     $('favoritesButton').setAttribute('aria-pressed',String(state.favoritesOnly));
     $('favoritesButton').classList.toggle('active',state.favoritesOnly);
     $('resultsCount').textContent = state.loaded ? 'แสดง '+programs.length+' โปรแกรม' : '';
-    document.querySelectorAll('[data-filter]').forEach(el => { const active = el.dataset.filter === state.filter; el.classList.toggle('active',active); el.setAttribute('aria-pressed',String(active)); });
+    document.querySelectorAll('[data-filter]').forEach(el => { const active = el.dataset.filter === state.filter; el.classList.toggle('active',active); el.setAttribute('aria-pressed',String(active)); el.disabled = state.editingLayout; });
   }
+  function focusLayoutControl(id,action = 'grip') {
+    const button = [...document.querySelectorAll('[data-layout-action]')].find(el => el.dataset.programId === id && el.dataset.layoutAction === action);
+    if(button) { button.focus({preventScroll:true}); button.closest('.program-card').scrollIntoView({block:'nearest'}); }
+    else $('finishLayoutButton').focus({preventScroll:true});
+  }
+  function layoutResult(result,message,id,action) {
+    if(!result.changed) { if(result.reason === 'group') toast('ย้ายภายในกลุ่มเดียวกัน หรือเปลี่ยนหมุดของโปรแกรมก่อน'); if(result.reason === 'limit') toast('จัดหน้าหรือปักหมุดได้สูงสุด 2,000 โปรแกรม'); return; }
+    render();
+    $('layoutLive').textContent = message;
+    if(id) focusLayoutControl(id,action);
+    if(!result.stored) toast('จำการจัดหน้าชั่วคราวในแท็บนี้ เครื่องนี้ไม่อนุญาตให้บันทึกการตั้งค่า');
+  }
+  function layoutControls(p,index,size) {
+    const controls = create('div','layout-card-controls'); controls.setAttribute('role','group'); controls.setAttribute('aria-label','จัดหน้า '+p.name);
+    const button = (action,text,symbol) => { const el = create('button','layout-control '+(action === 'grip' ? 'layout-grip' : '')); el.type='button'; el.dataset.programId=p.id; el.dataset.layoutAction=action; el.innerHTML=icon(symbol); el.append(document.createTextNode(text)); controls.append(el); return el; };
+    const grip = button('grip','ลากย้าย','grip'); grip.setAttribute('aria-label','ลากย้าย '+p.name+' หรือใช้ปุ่มขึ้น–ลง');
+    grip.title = 'ลากเพื่อย้าย หรือกดลูกศรขึ้น–ลงบนแป้นพิมพ์';
+    grip.addEventListener('pointerdown',event => startLayoutDrag(event,p,grip));
+    grip.addEventListener('pointermove',moveLayoutDrag,{passive:false});
+    grip.addEventListener('pointerup',endLayoutDrag);
+    grip.addEventListener('pointercancel',cancelLayoutDrag); grip.addEventListener('lostpointercapture',cancelLayoutDrag);
+    grip.onclick = () => { if(Date.now() >= suppressLayoutClickUntil) $('layoutLive').textContent='ลากจุดจับเพื่อย้าย '+p.name+' หรือใช้ปุ่มขึ้น–ลง'; };
+    grip.onkeydown = event => { if(['ArrowUp','ArrowDown'].includes(event.key)) { event.preventDefault(); layoutResult(personalLayout.moveBy(p.id,event.key==='ArrowUp'?-1:1,state.programs),'ย้าย '+p.name+' แล้ว',p.id); } };
+    const pinned = personalLayout.isPinned(p.id), pin = button('pin',pinned ? 'ถอดหมุด' : 'ปักหมุด','pin'); pin.classList.toggle('active',pinned); pin.setAttribute('aria-pressed',String(pinned)); pin.setAttribute('aria-label',(pinned ? 'ถอดหมุด: ' : 'ปักหมุด: ')+p.name);
+    pin.onclick=()=>layoutResult(personalLayout.togglePin(p.id),(pinned?'ถอดหมุด ':'ปักหมุด ')+p.name+' แล้ว',p.id,'pin');
+    const up = button('up','ขึ้น','up'), down = button('down','ลง','down'); up.disabled=index===0; down.disabled=index===size-1;
+    up.setAttribute('aria-label','เลื่อนขึ้น: '+p.name); down.setAttribute('aria-label','เลื่อนลง: '+p.name);
+    up.onclick=()=>layoutResult(personalLayout.moveBy(p.id,-1,state.programs),'เลื่อน '+p.name+' ขึ้นแล้ว',p.id);
+    down.onclick=()=>layoutResult(personalLayout.moveBy(p.id,1,state.programs),'เลื่อน '+p.name+' ลงแล้ว',p.id);
+    return controls;
+  }
+  function cancelLayoutDrag() {
+    const drag = layoutDrag; if(!drag) return;
+    layoutDrag=null; cancelAnimationFrame(drag.frame);
+    document.querySelectorAll('.drag-source,.drop-before,.drop-after,.drop-blocked,.drop-vertical').forEach(el => el.classList.remove('drag-source','drop-before','drop-after','drop-blocked','drop-vertical'));
+    $('layoutDragHint').hidden=true;
+    try { if(drag.handle.hasPointerCapture(drag.pointerId)) drag.handle.releasePointerCapture(drag.pointerId); } catch {}
+  }
+  function startLayoutDrag(event,p,handle) {
+    if(!state.editingLayout || !event.isPrimary || event.button !== 0) return;
+    event.preventDefault(); cancelLayoutDrag(); handle.focus({preventScroll:true});
+    layoutDrag={id:p.id,name:p.name,pointerId:event.pointerId,handle,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,active:false,targetId:'',placement:'before',blocked:false,frame:0};
+    handle.setPointerCapture(event.pointerId);
+  }
+  function updateLayoutDrop() {
+    const drag=layoutDrag; if(!drag || !drag.active) return;
+    document.querySelectorAll('.drop-before,.drop-after,.drop-blocked,.drop-vertical').forEach(el=>el.classList.remove('drop-before','drop-after','drop-blocked','drop-vertical'));
+    const target=document.elementFromPoint(drag.x,drag.y)?.closest('.program-card');
+    drag.targetId=''; drag.blocked=false;
+    if(target && $('programGrid').contains(target) && target.dataset.programId !== drag.id) {
+      const p=state.programs.find(p=>p.visible && p.id===target.dataset.programId);
+      if(p) {
+        const rect=target.getBoundingClientRect(), multiColumn=rect.width < $('programGrid').getBoundingClientRect().width*0.7;
+        drag.targetId=p.id; drag.placement=(multiColumn ? drag.x < rect.left+rect.width/2 : drag.y < rect.top+rect.height/2) ? 'before' : 'after';
+        drag.blocked=personalLayout.isPinned(drag.id)!==personalLayout.isPinned(p.id);
+        target.classList.add(drag.blocked ? 'drop-blocked' : 'drop-'+drag.placement);
+        if(!multiColumn) target.classList.add('drop-vertical');
+        $('layoutDragHint').textContent=drag.blocked ? 'ย้ายภายในกลุ่มเดียวกัน หรือเปลี่ยนหมุดก่อน' : (drag.placement==='before'?'วางก่อน ':'วางหลัง ')+p.name;
+      }
+    }
+    if(!drag.targetId) $('layoutDragHint').textContent='กำลังย้าย '+drag.name;
+    const hint=$('layoutDragHint'); hint.hidden=false; hint.style.left=Math.max(8,Math.min(drag.x+12,window.innerWidth-220))+'px'; hint.style.top=Math.max(8,Math.min(drag.y+12,window.innerHeight-100))+'px';
+  }
+  function scrollLayoutDrag() {
+    const drag=layoutDrag; if(!drag || !drag.active) return;
+    const direction=drag.y<80 ? -1 : drag.y>window.innerHeight-100 ? 1 : 0;
+    if(direction) { window.scrollBy(0,direction*12); updateLayoutDrop(); }
+    drag.frame=requestAnimationFrame(scrollLayoutDrag);
+  }
+  function moveLayoutDrag(event) {
+    const drag=layoutDrag; if(!drag || event.pointerId!==drag.pointerId) return;
+    drag.x=event.clientX; drag.y=event.clientY;
+    if(!drag.active && Math.hypot(drag.x-drag.startX,drag.y-drag.startY)>=8) {
+      drag.active=true; drag.handle.closest('.program-card').classList.add('drag-source'); drag.frame=requestAnimationFrame(scrollLayoutDrag);
+    }
+    if(drag.active) { event.preventDefault(); updateLayoutDrop(); }
+  }
+  function endLayoutDrag(event) {
+    const drag=layoutDrag; if(!drag || event.pointerId!==drag.pointerId) return;
+    if(drag.active) { event.preventDefault(); suppressLayoutClickUntil=Date.now()+500; }
+    const targetId=drag.targetId, placement=drag.placement; cancelLayoutDrag();
+    if(drag.active && targetId) layoutResult(personalLayout.move(drag.id,targetId,placement,state.programs),'ย้าย '+drag.name+' แล้ว',drag.id);
+  }
+  function openPersonalSettings() {
+    cancelLayoutDrag(); const prefs=personalLayout.snapshot();
+    const pins=state.programs.filter(p=>p.visible && personalLayout.isPinned(p.id)).length;
+    $('personalLayoutSummary').textContent=(prefs.order.length?'ใช้ลำดับที่คุณจัดไว้':'ใช้ลำดับจากผู้ดูแล')+' · ปักหมุด '+pins+' โปรแกรม';
+    $('personalSettingsDialog').showModal();
+  }
+  function finishLayout() { state.editingLayout=false; cancelLayoutDrag(); render(); $('personalSettingsButton').focus({preventScroll:true}); toast('จบการจัดหน้าแล้ว'); }
   function applySettings() {
     const settings = state.settings; document.querySelector('.brand small').textContent = settings.collegeName;
     document.querySelector('.footer-inner>span:nth-child(2)').textContent = '© '+new Date().getFullYear()+' SRNR NEXT · '+settings.collegeName;
@@ -240,6 +357,7 @@
   function route() {
     const key = location.hash.slice(1); const page = ['home','search','teachers','students','favorites'].includes(key) ? key : 'home';
     if(key === 'main') return;
+    if(page !== 'home' && state.editingLayout) { state.editingLayout=false; cancelLayoutDrag(); }
     state.filter = page === 'teachers' ? 'teacher' : page === 'students' ? 'student' : 'all';
     state.favoritesOnly = page === 'favorites';
     state.subcategory = '';
@@ -261,12 +379,31 @@
   $('subcategoryFilter').onchange = () => { state.subcategory = $('subcategoryFilter').value; render(); };
   $('clearSearch').onclick = () => { $('searchInput').value = ''; state.filter = 'all'; state.subcategory = ''; if(location.hash === '#favorites') location.hash = 'home'; else { state.favoritesOnly = false; render(); } };
   $('favoritesButton').onclick = () => { location.hash = state.favoritesOnly ? 'home' : 'favorites'; };
-  window.addEventListener('storage',event => { if(event.key === favoritesKey || event.key === null) { favorites = readFavorites(event.key === null ? null : event.newValue); render(); } });
+  window.addEventListener('storage',event => {
+    let changed=false;
+    if(event.key === favoritesKey || event.key === null) { favorites = readFavorites(event.key === null ? null : event.newValue); changed=true; }
+    if(event.key === layoutKey || event.key === null) { personalLayout.reload(event.key === null ? null : event.newValue); changed=true; }
+    if(changed) render();
+  });
+  $('personalSettingsButton').onclick = openPersonalSettings;
+  $('startLayoutButton').onclick = () => {
+    if(!layoutAvailable || !state.loaded || !state.programs.some(p=>p.visible)) return;
+    $('personalSettingsDialog').close(); state.editingLayout=true; state.filter='all'; state.favoritesOnly=false; state.subcategory=''; $('searchInput').value='';
+    if(location.hash !== '#home') location.hash='home';
+    route(); $('finishLayoutButton').focus({preventScroll:true}); $('layoutToolbar').scrollIntoView({block:'start'});
+  };
+  $('finishLayoutButton').onclick=finishLayout;
+  $('requestLayoutReset').onclick=()=>{ $('personalSettingsDialog').close(); $('layoutResetDialog').showModal(); };
+  $('cancelLayoutReset').onclick=()=>{ $('layoutResetDialog').close(); openPersonalSettings(); };
+  $('confirmLayoutReset').onclick=()=>{ const result=personalLayout.reset(); state.editingLayout=false; $('layoutResetDialog').close(); layoutResult(result,'คืนค่าเริ่มต้นของการจัดหน้าแล้ว'); $('personalSettingsButton').focus({preventScroll:true}); if(result.stored) toast('คืนลำดับจากผู้ดูแลและนำหมุดส่วนตัวออกแล้ว'); };
   $('retryButton').onclick = () => load();
   $('refreshPublicButton').onclick = () => load();
   window.addEventListener('hashchange',route);
   document.querySelectorAll('[data-nav],.brand').forEach(link => { link.addEventListener('click',() => { if(link.getAttribute('href') === location.hash) route(); }); });
-  document.addEventListener('keydown',event => { if(event.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) && !document.querySelector('dialog[open]')) { event.preventDefault(); location.hash = 'search'; $('searchInput').focus(); } });
+  document.addEventListener('keydown',event => {
+    if(event.key === 'Escape' && state.editingLayout && !document.querySelector('dialog[open]')) { event.preventDefault(); finishLayout(); }
+    if(event.key === '/' && !state.editingLayout && !/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) && !document.querySelector('dialog[open]')) { event.preventDefault(); location.hash = 'search'; $('searchInput').focus(); }
+  });
   document.querySelectorAll('[data-close]').forEach(el => { el.onclick = () => $(el.dataset.close).close(); });
   $('loginDialog').addEventListener('close',() => { $('adminPassword').value = ''; });
   $('reportDialog').addEventListener('close',() => { reportGeneration++; reportContext = null; $('reportForm').reset(); });

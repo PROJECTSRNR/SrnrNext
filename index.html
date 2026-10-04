@@ -61,10 +61,12 @@
           <button type="button" class="filter" data-filter="student" aria-pressed="false"><span data-icon="graduation"></span>นักเรียน</button>
         </div>
       </div>
-      <div class="quick-views"><button type="button" id="favoritesButton" class="favorites-button" aria-pressed="false"><span data-icon="star"></span>รายการโปรด <span id="favoritesCount" class="favorites-count">0</span></button><span>กดดาวเพื่อเก็บโปรแกรมที่ใช้บ่อยไว้ในเครื่องนี้</span></div>
+      <div class="quick-views"><button type="button" id="favoritesButton" class="favorites-button" aria-pressed="false"><span data-icon="star"></span>รายการโปรด <span id="favoritesCount" class="favorites-count">0</span></button><button type="button" id="personalSettingsButton" class="favorites-button personal-settings-button" aria-haspopup="dialog"><span data-icon="settings"></span>ตั้งค่าหน้าของฉัน</button><span>กดดาวเพื่อเก็บโปรแกรมที่ใช้บ่อยไว้ในเครื่องนี้</span></div>
       <label class="subcategory-filter" for="subcategoryFilter"><span>หมวดย่อย</span><select id="subcategoryFilter"><option value="">ทุกหมวดย่อย</option></select></label>
       <div id="previewNotice" class="preview-notice" hidden>หน้าตัวอย่างการออกแบบ · รายการด้านล่างยังไม่ได้เชื่อมระบบจริง</div>
       <div id="publicDataNotice" class="public-data-notice" role="status" hidden><span id="publicDataMessage"></span><button type="button" id="refreshPublicButton" class="secondary-button" hidden>ตรวจข้อมูลล่าสุดอีกครั้ง</button></div>
+      <div id="layoutToolbar" class="layout-toolbar" hidden><div><strong>จัดหน้าโปรแกรมของฉัน</strong><p>ลากจุดจับหรือใช้ปุ่มขึ้น–ลง · โปรแกรมที่ปักหมุดอยู่ด้านบน · บันทึกอัตโนมัติในเครื่องนี้</p></div><button id="finishLayoutButton" type="button" class="primary-button">เสร็จแล้ว</button></div>
+      <div id="layoutLive" class="sr-only" role="status" aria-live="polite"></div>
       <div id="errorState" class="state-box" hidden><span data-icon="cloud"></span><h3>ยังโหลดข้อมูลไม่ได้</h3><p id="errorMessage"></p><button type="button" id="retryButton" class="primary-button">ลองอีกครั้ง</button></div>
       <div id="loadingState" class="program-grid" aria-label="กำลังโหลดโปรแกรม"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
       <div id="programGrid" class="program-grid" aria-live="polite"></div>
@@ -82,6 +84,21 @@
   </main>
   <footer class="footer"><div class="footer-inner"><button id="adminEntry" type="button" class="admin-entry"><span data-icon="lock"></span>ผู้ดูแลระบบ</button><span>© <span id="year"></span> SRNR NEXT · วิทยาลัยเทคนิคสุรนารี</span><span class="footer-brand">by งานศูนย์ดิจิทัลและสื่อสารองค์กร</span></div></footer>
   <nav class="mobile-nav" aria-label="เมนูมือถือ"><a href="#home" data-nav="home"><span data-icon="home"></span>Home</a><a href="#search" data-nav="search"><span data-icon="search"></span>Search</a><a href="#teachers" data-nav="teachers"><span data-icon="briefcase"></span>ครู</a><a href="#students" data-nav="students"><span data-icon="graduation"></span>นักเรียน</a><a href="#favorites" data-nav="favorites"><span data-icon="star"></span>รายการโปรด</a></nav>
+  <div id="layoutDragHint" class="layout-drag-hint" hidden></div>
+  <dialog id="personalSettingsDialog" class="dialog personal-settings-dialog" aria-labelledby="personalSettingsTitle">
+    <button type="button" class="dialog-close icon-button" data-close="personalSettingsDialog" aria-label="ปิดตั้งค่าหน้าของฉัน"><span data-icon="close"></span></button>
+    <div class="dialog-emblem"><span data-icon="settings"></span></div><h2 id="personalSettingsTitle">ตั้งค่าหน้าของฉัน</h2>
+    <p class="dialog-description">เลือกตำแหน่งและปักหมุดโปรแกรมที่ใช้บ่อย จำไว้เฉพาะเครื่องและเบราว์เซอร์นี้</p>
+    <p id="personalLayoutSummary" class="personal-layout-summary"></p>
+    <button id="startLayoutButton" type="button" class="primary-button full-width">จัดเรียงและปักหมุดโปรแกรม</button>
+    <p class="personal-layout-help">บนมือถือ ลากที่จุดจับเพื่อย้ายการ์ด เลื่อนหน้าจอจากพื้นที่อื่นได้ตามปกติ หรือใช้ปุ่มขึ้น–ลงแทนการลาก</p>
+    <button id="requestLayoutReset" type="button" class="secondary-button full-width">คืนค่าเริ่มต้นของการจัดหน้า</button>
+    <p class="personal-layout-help">คืนลำดับจากผู้ดูแลและนำหมุดส่วนตัวออก รายการโปรดและโหมดสีของคุณยังอยู่ การล้างข้อมูลเว็บไซต์อาจลบการจัดหน้านี้</p>
+  </dialog>
+  <dialog id="layoutResetDialog" class="dialog confirm-dialog" aria-labelledby="layoutResetTitle">
+    <h2 id="layoutResetTitle">คืนค่าเริ่มต้นของการจัดหน้า?</h2><p>นำลำดับที่คุณจัดและหมุดส่วนตัวออกจากเครื่องนี้ แล้วใช้ลำดับจากผู้ดูแล</p>
+    <div class="confirm-actions"><button type="button" id="cancelLayoutReset" class="secondary-button">ยกเลิก</button><button type="button" id="confirmLayoutReset" class="primary-button">คืนค่าเริ่มต้น</button></div>
+  </dialog>
   <dialog id="loginDialog" class="dialog login-dialog" aria-labelledby="loginTitle">
     <button type="button" class="dialog-close icon-button" data-close="loginDialog" aria-label="ปิด"><span data-icon="close"></span></button>
     <div class="dialog-emblem"><span data-icon="lock"></span></div><div class="eyebrow muted">ADMIN WORKSPACE</div><h2 id="loginTitle">ผู้ดูแลระบบ</h2><p class="dialog-description">จัดการโปรแกรมและข้อมูลของ SRNR NEXT</p>
@@ -137,6 +154,7 @@
   <!-- SRNR:PWA:END -->
   <script src="api.js"></script>
   <script src="public-cache.js"></script>
+  <script src="personal-layout.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
