@@ -76,7 +76,8 @@
     const u = new URL(safe);
     if (u.hostname === 'drive.google.com') {
       const id = (u.pathname.match(/\/d\/([\w-]+)/) || [])[1] || u.searchParams.get('id');
-      return id && /^[\w-]{10,200}$/.test(id) ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w256' : '';
+      const resourceKey=u.searchParams.get('resourcekey');
+      return id && /^[\w-]{10,200}$/.test(id) ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w256'+(resourceKey?'&resourcekey='+encodeURIComponent(resourceKey):'') : '';
     }
     return safe;
   }
@@ -408,8 +409,43 @@
   $('loginDialog').addEventListener('close',() => { $('adminPassword').value = ''; });
   $('reportDialog').addEventListener('close',() => { reportGeneration++; reportContext = null; $('reportForm').reset(); });
   $('adminDialog').addEventListener('close',() => { ['currentPassword','newPassword','confirmPassword'].forEach(id => { $(id).value = ''; }); });
-  function clearEditor() { $('programForm').reset(); $('programInfoFields').open = false; $('programId').value = ''; $('programError').textContent = ''; $('editorTitle').textContent = 'เพิ่มโปรแกรมใหม่'; }
-  function fillEditor(p) { $('programId').value = p.id; $('programName').value = p.name; $('programDescription').value = p.description; $('programCategory').value = p.category; $('programUrl').value = p.url; $('programLogo').value = p.logo; $('programColor').value = p.color; $('programOrder').value = p.order; $('programVisible').checked = p.visible; $('programRecommended').checked = !!p.recommended; $('programServiceStatus').value = p.serviceStatus || 'ready'; $('programStatusNote').value = p.statusNote || ''; $('programSubcategory').value = p.subcategory || ''; $('programTags').value = (p.tags || []).join(', '); $('programHowTo').value = p.howTo || ''; $('programRequirements').value = p.requirements || ''; $('programContact').value = p.contact || ''; $('programContactUrl').value = p.contactUrl || ''; $('programInfoFields').open = !!(p.howTo || p.requirements || p.contact || p.contactUrl); $('editorTitle').textContent = 'แก้ไขโปรแกรม'; $('programError').textContent = ''; $('programName').focus(); }
+  let lastLogoUpload=null;
+  function updateLogoPreview(localPreview) {
+    const url=localPreview || logoUrl($('programLogo').value.trim());
+    $('programLogoPreview').hidden=!url; $('logoPreviewImage').hidden=false; $('logoPreviewText').textContent='ตัวอย่างโลโก้';
+    if(url) $('logoPreviewImage').src=url; else $('logoPreviewImage').removeAttribute('src');
+  }
+  function resetLogoUpload() { lastLogoUpload=null; $('programLogoFile').value=''; $('logoUploadStatus').textContent=''; $('logoUploadStatus').classList.remove('form-error'); updateLogoPreview(); }
+  $('logoPreviewImage').onerror=()=>{ $('logoPreviewImage').hidden=true; $('logoPreviewText').textContent='ยังแสดงรูปไม่ได้ กรุณาตรวจลิงก์และสิทธิ์รูป'; };
+  $('logoPreviewImage').onload=()=>{ $('logoPreviewImage').hidden=false; $('logoPreviewText').textContent='ตัวอย่างโลโก้'; };
+  $('programLogo').addEventListener('input',()=>{ $('logoUploadStatus').textContent=''; updateLogoPreview(); });
+  $('chooseProgramLogo').onclick=()=>{
+    if(!state.token || preview) { toast('กรุณาเข้าสู่ระบบผู้ดูแลก่อนอัปโหลด'); return; }
+    $('programLogoFile').value=''; $('programLogoFile').click();
+  };
+  $('programLogoFile').onchange=()=>{
+    const file=$('programLogoFile').files[0]; if(!file || !state.token || preview) return;
+    busy($('programForm'),async()=>{
+      const button=$('chooseProgramLogo'), status=$('logoUploadStatus');
+      button.textContent='กำลังอัปโหลด…'; status.classList.remove('form-error'); status.textContent='กำลังเตรียมและย่อรูป…';
+      try {
+        if(!window.SRNR_LOGO_UPLOAD) throw new Error('โหลดเครื่องมืออัปโหลดไม่สำเร็จ กรุณาตรวจไฟล์ logo-upload.js และโหลดหน้าใหม่');
+        const prepared=await window.SRNR_LOGO_UPLOAD.prepare(file);
+        const requestId=lastLogoUpload && lastLogoUpload.base64===prepared.base64 ? lastLogoUpload.requestId : deviceId.slice(0,60)+'-'+Date.now().toString(36);
+        lastLogoUpload={base64:prepared.base64,requestId};
+        updateLogoPreview(prepared.dataUrl); status.textContent='กำลังอัปโหลดเข้า Google Drive…';
+        const result=await call('uploadProgramLogo',state.token,{mimeType:prepared.mimeType,base64:prepared.base64,requestId});
+        if(!result || !safeUrl(result.logo)) throw new Error('เซิร์ฟเวอร์ไม่ได้ส่งลิงก์รูปที่ถูกต้อง กรุณาลองอีกครั้ง');
+        $('programLogo').value=result.logo;
+        status.textContent='อัปโหลดแล้ว · '+prepared.width+' × '+prepared.height+' พิกเซล · กดบันทึกโปรแกรมเพื่อใช้โลโก้นี้';
+      } catch(err) {
+        updateLogoPreview(); status.classList.add('form-error');
+        status.textContent=/uploadProgramLogo/.test(err.message) ? 'กรุณาอัปเดต Code.gs และ Bridge.html แล้ว Deploy Apps Script เวอร์ชันใหม่ก่อนอัปโหลดรูป' : err.message;
+      } finally { button.textContent='เลือกรูปและอัปโหลด'; $('programLogoFile').value=''; }
+    });
+  };
+  function clearEditor() { $('programForm').reset(); $('programInfoFields').open = false; $('programId').value = ''; $('programError').textContent = ''; $('editorTitle').textContent = 'เพิ่มโปรแกรมใหม่'; resetLogoUpload(); }
+  function fillEditor(p) { $('programId').value = p.id; $('programName').value = p.name; $('programDescription').value = p.description; $('programCategory').value = p.category; $('programUrl').value = p.url; $('programLogo').value = p.logo; $('programColor').value = p.color; $('programOrder').value = p.order; $('programVisible').checked = p.visible; $('programRecommended').checked = !!p.recommended; $('programServiceStatus').value = p.serviceStatus || 'ready'; $('programStatusNote').value = p.statusNote || ''; $('programSubcategory').value = p.subcategory || ''; $('programTags').value = (p.tags || []).join(', '); $('programHowTo').value = p.howTo || ''; $('programRequirements').value = p.requirements || ''; $('programContact').value = p.contact || ''; $('programContactUrl').value = p.contactUrl || ''; $('programInfoFields').open = !!(p.howTo || p.requirements || p.contact || p.contactUrl); $('editorTitle').textContent = 'แก้ไขโปรแกรม'; $('programError').textContent = ''; resetLogoUpload(); $('programName').focus(); }
   function renderAdmin() {
     const suggestions = [...new Set(state.adminPrograms.map(p => p.subcategory).filter(Boolean))].sort((a,b) => a.localeCompare(b,'th'));
     $('subcategorySuggestions').replaceChildren(...suggestions.map(value => { const option = create('option'); option.value = value; return option; }));

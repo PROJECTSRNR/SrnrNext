@@ -2,7 +2,7 @@
 (() => {
   if (location.protocol === 'file:' || (window.SRNR_CONFIG && window.SRNR_CONFIG.preview === true)) return;
   const protocol = 'srnr-hub-v1';
-  const methods = Object.freeze({getPublicData:0,loginAdmin:1,logoutAdmin:1,getAdminData:1,saveProgram:3,deleteProgram:3,saveSettings:3,changeAdminPassword:3,getReportChallenge:1,submitLinkReport:1,getAdminReports:1,setReportStatus:4});
+  const methods = Object.freeze({getPublicData:0,loginAdmin:1,logoutAdmin:1,getAdminData:1,uploadProgramLogo:2,saveProgram:3,deleteProgram:3,saveSettings:3,changeAdminPassword:3,getReportChallenge:1,submitLinkReport:1,getAdminReports:1,setReportStatus:4});
   const pending = new Map();
   let connection = null, connecting = null, serial = 0;
   const isLocal = url => ['localhost','127.0.0.1'].includes(url.hostname);
@@ -58,7 +58,7 @@
   }
   async function call(method,...args) {
     if (!Object.hasOwn(methods,method) || args.length !== methods[method]) throw new Error('คำขอไม่ถูกต้อง');
-    if (JSON.stringify(args).length > 32000) throw new Error('ข้อมูลคำขอมีขนาดใหญ่เกินไป');
+    if (JSON.stringify(args).length > (method === 'uploadProgramLogo' ? 360000 : 32000)) throw new Error('ข้อมูลคำขอมีขนาดใหญ่เกินไป');
     const remote = await connect();
     if (pending.size >= 8) throw new Error('มีคำขอพร้อมกันมากเกินไป กรุณารอสักครู่');
     return new Promise((resolve,reject) => {
