@@ -27,6 +27,8 @@
     settings:'<path d="m9 3-.6 3-2 1.2-2.9-1-2 3.5 2.3 2v2.6l-2.3 2 2 3.5 2.9-1 2 1.2.6 3h4l.6-3 2-1.2 2.9 1 2-3.5-2.3-2v-2.6l2.3-2-2-3.5-2.9 1-2-1.2-.6-3Z"/><circle cx="11" cy="13" r="3"/>',
     pin:'<path d="M9 3h6l-1 6 4 4v2H6v-2l4-4ZM12 15v6"/>',
     grip:'<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
+    grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    list:'<path d="M9 5h12M9 12h12M9 19h12"/><rect x="3" y="4" width="2" height="2" rx=".5"/><rect x="3" y="11" width="2" height="2" rx=".5"/><rect x="3" y="18" width="2" height="2" rx=".5"/>',
     up:'<path d="m6 14 6-6 6 6"/>',down:'<path d="m6 10 6 6 6-6"/>'
   };
   function icon(name) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (icons[name] || icons.layers) + '</svg>'; }
@@ -48,6 +50,9 @@
   ].map((p,i) => ({...p,order:i,visible:true,recommended:i === 0 || i === 2,serviceStatus:i === 3 ? 'maintenance' : 'ready',statusNote:i === 3 ? 'กำลังอัปเดตระบบ กรุณากลับมาใช้งานภายหลัง' : '',url:'',logo:''}));
   const favoritesKey = 'srnr-favorites-v1'+(preview ? ':preview' : ':live');
   const layoutKey = 'srnr-layout-v1:'+new URL('.',location.href).href+':'+(preview ? 'preview' : 'live');
+  const programViewKey = 'srnr-view-v1:'+new URL('.',location.href).href+':'+(preview ? 'preview' : 'live');
+  let initialProgramView='card';
+  try { if(localStorage.getItem(programViewKey)==='list') initialProgramView='list'; } catch {}
   const layoutAvailable = !!window.SRNR_PERSONAL_LAYOUT;
   const personalLayout = layoutAvailable ? window.SRNR_PERSONAL_LAYOUT.create({key:layoutKey,storage:{getItem:key => localStorage.getItem(key),setItem:(key,value) => localStorage.setItem(key,value),removeItem:key => localStorage.removeItem(key)}}) : {
     ordered:programs => [...programs].sort((a,b) => Number(!!b.recommended)-Number(!!a.recommended) || a.order-b.order || a.name.localeCompare(b.name,'th')),
@@ -59,7 +64,7 @@
   }
   let favorites = new Set();
   try { favorites = readFavorites(localStorage.getItem(favoritesKey)); } catch {}
-  const state = {programs:[],settings:{collegeName:'วิทยาลัยเทคนิคสุรนารี',collegeLogo:''},filter:'all',subcategory:'',favoritesOnly:false,token:'',adminPrograms:[],revision:'',deleteId:'',loaded:false,publicStale:false,publicSavedAt:0,editingLayout:false};
+  const state = {programs:[],settings:{collegeName:'วิทยาลัยเทคนิคสุรนารี',collegeLogo:''},filter:'all',subcategory:'',favoritesOnly:false,token:'',adminPrograms:[],revision:'',deleteId:'',loaded:false,publicStale:false,publicSavedAt:0,editingLayout:false,programView:initialProgramView};
   const defaultLogo = $('collegeLogo').getAttribute('src');
   let toastTimer, loadGeneration = 0;
   let layoutDrag = null, suppressLayoutClickUntil = 0;
@@ -69,6 +74,25 @@
   if(!/^[a-z0-9-]{16,80}$/i.test(deviceId)) {
     deviceId = window.crypto && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+'-'+Math.random().toString(36).slice(2);
     try { localStorage.setItem('srnr-report-device-v1',deviceId); } catch {}
+  }
+  function applyProgramView() {
+    const list=state.programView==='list';
+    $('main').classList.toggle('list-view',list);
+    $('programGrid').classList.toggle('program-list',list);
+    $('loadingState').classList.toggle('program-list',list);
+    document.querySelectorAll('[data-program-view]').forEach(button=>{
+      const active=button.dataset.programView===state.programView;
+      button.classList.toggle('active',active); button.setAttribute('aria-pressed',String(active));
+    });
+  }
+  function setProgramView(view,persist=false) {
+    if(!['card','list'].includes(view)) return;
+    if(state.programView!==view) cancelLayoutDrag();
+    state.programView=view; applyProgramView();
+    if(persist) {
+      try { localStorage.setItem(programViewKey,view); }
+      catch { toast('เลือกมุมมองแล้ว แต่เครื่องนี้ไม่อนุญาตให้จำค่า จะใช้ชั่วคราวในแท็บนี้'); }
+    }
   }
   function safeUrl(value, allowHttp = false) { try { const u = new URL(value); return (u.protocol === 'https:' || allowHttp && u.protocol === 'http:') && !u.username && !u.password ? u.href : ''; } catch { return ''; } }
   function logoUrl(value) {
@@ -155,6 +179,7 @@
   }
   function render() {
     cancelLayoutDrag();
+    applyProgramView();
     renderSubcategories();
     const query = normalizeSearch($('searchInput').value.trim()), terms = query.split(/\s+/).filter(Boolean);
     const selected = state.programs.filter(p => p.visible && (!state.favoritesOnly || favorites.has(p.id)) && (state.filter === 'all' || p.category === state.filter || p.category === 'all') && (!state.subcategory || p.subcategory === state.subcategory));
@@ -193,16 +218,22 @@
       if (launch.tagName === 'A') card.classList.add('launchable-card');
       actions.append(detail,report); bottom.append(actions,launch);
       card.append(top);
+      const content=create('div','card-content');
       const badges = create('div','card-badges');
       if(personalLayout.isPinned(p.id)) { const badge = create('span','personal-pin-badge'); badge.innerHTML = icon('pin'); badge.append(document.createTextNode('ปักหมุด')); badges.append(badge); }
       if(p.recommended) { const badge = create('span','recommended-badge'); badge.innerHTML = icon('star'); badge.append(document.createTextNode('แนะนำ')); badges.append(badge); }
-      if(badges.childNodes.length) card.append(badges);
-      card.append(create('h3','',p.name),create('p','',p.description || 'เครื่องมือสำหรับชาวเทคนิคสุรนารี'));
-      if(state.editingLayout) card.append(layoutControls(p,groupPositions.get(p.id),groupSizes.get(personalLayout.isPinned(p.id))));
-      if(p.subcategory) card.append(create('span','subcategory-badge card-subcategory',p.subcategory));
+      if(badges.childNodes.length) content.append(badges);
+      const description=create('p','card-description',p.description || 'เครื่องมือสำหรับชาวเทคนิคสุรนารี');
+      description.title=description.textContent;
+      content.append(create('h3','',p.name),description);
+      const meta=create('div','card-meta');
+      meta.append(create('span','category-badge list-category',categoryLabel(p.category)));
+      if(p.subcategory) meta.append(create('span','subcategory-badge card-subcategory',p.subcategory));
       const health = create('div','program-health'+(maintenance ? ' maintenance' : ''),(state.publicStale ? 'สถานะล่าสุด: ' : '')+(maintenance ? 'ปิดปรับปรุง' : 'พร้อมใช้งาน'));
-      card.append(health);
-      if(p.statusNote) card.append(create('p','service-note'+(maintenance ? ' maintenance-note' : ''),p.statusNote));
+      meta.append(health); content.append(meta);
+      if(p.statusNote) content.append(create('p','service-note'+(maintenance ? ' maintenance-note' : ''),p.statusNote));
+      card.append(content);
+      if(state.editingLayout) card.append(layoutControls(p,groupPositions.get(p.id),groupSizes.get(personalLayout.isPinned(p.id))));
       card.append(bottom); fragment.append(card);
     });
     $('programGrid').replaceChildren(fragment);
@@ -378,12 +409,14 @@
   $('searchInput').oninput = render;
   document.querySelectorAll('[data-filter]').forEach(el => { el.onclick = () => { state.filter = el.dataset.filter; render(); }; });
   $('subcategoryFilter').onchange = () => { state.subcategory = $('subcategoryFilter').value; render(); };
+  document.querySelectorAll('[data-program-view]').forEach(button=>{ button.onclick=()=>setProgramView(button.dataset.programView,true); });
   $('clearSearch').onclick = () => { $('searchInput').value = ''; state.filter = 'all'; state.subcategory = ''; if(location.hash === '#favorites') location.hash = 'home'; else { state.favoritesOnly = false; render(); } };
   $('favoritesButton').onclick = () => { location.hash = state.favoritesOnly ? 'home' : 'favorites'; };
   window.addEventListener('storage',event => {
     let changed=false;
     if(event.key === favoritesKey || event.key === null) { favorites = readFavorites(event.key === null ? null : event.newValue); changed=true; }
     if(event.key === layoutKey || event.key === null) { personalLayout.reload(event.key === null ? null : event.newValue); changed=true; }
+    if(event.key === programViewKey || event.key === null) setProgramView(event.key !== null && event.newValue === 'list' ? 'list' : 'card');
     if(changed) render();
   });
   $('personalSettingsButton').onclick = openPersonalSettings;

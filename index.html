@@ -62,7 +62,13 @@
         </div>
       </div>
       <div class="quick-views"><button type="button" id="favoritesButton" class="favorites-button" aria-pressed="false"><span data-icon="star"></span>รายการโปรด <span id="favoritesCount" class="favorites-count">0</span></button><button type="button" id="personalSettingsButton" class="favorites-button personal-settings-button" aria-haspopup="dialog"><span data-icon="settings"></span>ตั้งค่าหน้าของฉัน</button><span>กดดาวเพื่อเก็บโปรแกรมที่ใช้บ่อยไว้ในเครื่องนี้</span></div>
-      <label class="subcategory-filter" for="subcategoryFilter"><span>หมวดย่อย</span><select id="subcategoryFilter"><option value="">ทุกหมวดย่อย</option></select></label>
+      <div class="catalog-controls">
+        <label class="subcategory-filter" for="subcategoryFilter"><span>หมวดย่อย</span><select id="subcategoryFilter"><option value="">ทุกหมวดย่อย</option></select></label>
+        <div class="view-switch" role="group" aria-label="มุมมองโปรแกรม">
+          <button type="button" data-program-view="card" aria-pressed="true" aria-controls="programGrid" class="active"><span data-icon="grid"></span>การ์ด</button>
+          <button type="button" data-program-view="list" aria-pressed="false" aria-controls="programGrid"><span data-icon="list"></span>รายการ</button>
+        </div>
+      </div>
       <div id="previewNotice" class="preview-notice" hidden>หน้าตัวอย่างการออกแบบ · รายการด้านล่างยังไม่ได้เชื่อมระบบจริง</div>
       <div id="publicDataNotice" class="public-data-notice" role="status" hidden><span id="publicDataMessage"></span><button type="button" id="refreshPublicButton" class="secondary-button" hidden>ตรวจข้อมูลล่าสุดอีกครั้ง</button></div>
       <div id="layoutToolbar" class="layout-toolbar" hidden><div><strong>จัดหน้าโปรแกรมของฉัน</strong><p>ลากจุดจับหรือใช้ปุ่มขึ้น–ลง · โปรแกรมที่ปักหมุดอยู่ด้านบน · บันทึกอัตโนมัติในเครื่องนี้</p></div><button id="finishLayoutButton" type="button" class="primary-button">เสร็จแล้ว</button></div>
@@ -91,7 +97,7 @@
     <p class="dialog-description">เลือกตำแหน่งและปักหมุดโปรแกรมที่ใช้บ่อย จำไว้เฉพาะเครื่องและเบราว์เซอร์นี้</p>
     <p id="personalLayoutSummary" class="personal-layout-summary"></p>
     <button id="startLayoutButton" type="button" class="primary-button full-width">จัดเรียงและปักหมุดโปรแกรม</button>
-    <p class="personal-layout-help">บนมือถือ ลากที่จุดจับเพื่อย้ายการ์ด เลื่อนหน้าจอจากพื้นที่อื่นได้ตามปกติ หรือใช้ปุ่มขึ้น–ลงแทนการลาก</p>
+    <p class="personal-layout-help">บนมือถือ ลากที่จุดจับเพื่อย้ายโปรแกรม เลื่อนหน้าจอจากพื้นที่อื่นได้ตามปกติ หรือใช้ปุ่มขึ้น–ลงแทนการลาก</p>
     <button id="requestLayoutReset" type="button" class="secondary-button full-width">คืนค่าเริ่มต้นของการจัดหน้า</button>
     <p class="personal-layout-help">คืนลำดับจากผู้ดูแลและนำหมุดส่วนตัวออก รายการโปรดและโหมดสีของคุณยังอยู่ การล้างข้อมูลเว็บไซต์อาจลบการจัดหน้านี้</p>
   </dialog>
