@@ -133,6 +133,27 @@ body{background-color:var(--bg);background-image:radial-gradient(ellipse 780px 5
 @media(max-width:600px){.search-box{height:54px}.search-box input{font-size:16px}.search-box kbd{display:none}.connection.connected{font-size:10px;padding:4px 8px}.container::before{background-size:48px 48px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.program-grid:not(.arranging) .launchable-card:hover,.program-grid:not(.arranging) .launchable-card:active{transform:none}}
 
+/* Both views use the screen width. Five desktop cards retain large logos and touch targets. */
+.container{max-width:none}
+.program-grid:not(.program-list){grid-template-columns:minmax(0,1fr)}
+@media(min-width:600px){
+  .program-grid:not(.program-list){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .program-grid:not(.program-list) .card-controls{flex-direction:column;align-items:flex-end}
+}
+@media(min-width:900px){
+  .program-grid:not(.program-list){grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(min-width:1100px){
+  .program-grid:not(.program-list){grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(min-width:1280px){
+  .program-grid:not(.program-list){grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media(min-width:600px) and (max-width:1599px){
+  .program-grid:not(.program-list){gap:14px}
+  .program-grid:not(.program-list) .program-card{padding:20px 16px 0;min-width:0}
+}
+
 /* One program per full-width row; the same controls and launch link are retained. */
 .card-content,.card-meta{display:contents}
 .list-category{display:none}
